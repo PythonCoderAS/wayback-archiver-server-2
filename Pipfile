@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fastapi = "*"
+aiohttp = "<4"
+asyncpg = ">=0.29.0"
+sqlalchemy = {extras = ["asyncio"], version = "*"}
+
+[dev-packages]
+uvicorn = {extras = ["standard"] }
+
+[requires]
+python_version = "3.12"
+
+[pipenv]
+allow_prereleases = true
