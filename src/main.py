@@ -152,10 +152,10 @@ async def repeat_url_worker():
             for job in jobs:
                 if (not job.url.last_seen or job.url.last_seen + datetime.timedelta(seconds=job.interval) < curtime) and job.url.url not in existing_jobs: # Job can be re-queued
                     if batch is None or (created_at + datetime.timedelta(minutes=30) < curtime):
-                        # batch = await Batch.objects.create()
-                        batch = Batch()
-                        created_at = curtime
-                        session.add(batch)
+                        async with session.begin_nested():
+                            batch = Batch()
+                            created_at = curtime
+                            session.add(batch)
                     queued.append(Job(url=job.url, priority=10, batches=[batch, job.batch]))
             if queued:
                 session.add_all(queued)
