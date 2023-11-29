@@ -1,4 +1,4 @@
-FROM python:3.12-alpine as generate-requirements
+FROM python:3.12-slim as generate-requirements
 
 # Path: /app
 WORKDIR /app
@@ -7,7 +7,7 @@ COPY ./Pipfile ./Pipfile.lock ./
 RUN ["pip", "install", "pipenv"]
 RUN ["sh", "-c", "pipenv requirements --dev > requirements.txt"]
 
-FROM python:3.12-alpine as build
+FROM python:3.12-slim as build
 
 # Path: /app
 WORKDIR /app
