@@ -35,7 +35,6 @@ jobs:
           - linux/arm64/v8
           - linux/386
           - windows/amd64
-          - windows/arm64
     permissions:
       contents: read
       packages: write
