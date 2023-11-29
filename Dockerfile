@@ -6,6 +6,7 @@ WORKDIR /app
 COPY ./Pipfile ./Pipfile.lock ./
 RUN ["pip", "install", "pipenv"]
 RUN ["sh", "-c", "pipenv requirements --dev > requirements.txt"]
+RUN ["rm", "Pipfile", "Pipfile.lock"]
 
 FROM python:3.12 as build
 
@@ -17,7 +18,6 @@ COPY --from=generate-requirements /app/requirements.txt ./
 RUN ["python3", "-m", "venv", "/venv"]
 ENV PATH="/venv/bin:$PATH"
 RUN ["python3", "-m", "pip", "install", "-r", "requirements.txt"]
-RUN ["rm", "Pipfile", "Pipfile.lock"]
 
 FROM python:3.12-slim as production
 COPY --from=build /venv /venv
