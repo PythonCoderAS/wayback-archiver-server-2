@@ -140,15 +140,13 @@ async def repeat_url_worker():
     created_at: datetime.datetime = None
     while True:
         curtime = datetime.datetime.now(tz=datetime.timezone.utc)
-        async with async_session() as session:
+        async with async_session() as session, session.begin():
             stmt = select(RepeatURL).where(RepeatURL.active_since <= curtime).order_by(RepeatURL.created_at)
-            async with session.begin():
-                result = await session.scalars(stmt)
-                jobs = result.all()
+            result = await session.scalars(stmt)
+            jobs = result.all()
             stmt2 = select(URL.url).join(Job).where(URL.url.in_([job.url.url for job in jobs]) & (Job.completed == None) & (Job.failed == None))
-            async with session.begin():
-                result = await session.scalars(stmt2)
-                existing_jobs = result.all()
+            result = await session.scalars(stmt2)
+            existing_jobs = result.all()
             queued: list[Job] = []
             for job in jobs:
                 if (not job.url.last_seen or job.url.last_seen + datetime.timedelta(seconds=job.interval) < curtime) and job.url.url not in existing_jobs: # Job can be re-queued
@@ -158,8 +156,7 @@ async def repeat_url_worker():
                         created_at = curtime
                     queued.append(Job(url=job.url, priority=10, batches=[batch, job.batch]))
             if queued:
-                async with session.begin():
-                    session.add_all(queued)
+                session.add_all(queued)
         await asyncio.sleep(60)
 
 
