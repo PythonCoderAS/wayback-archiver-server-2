@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 fastapi = "*"
-aiohttp = "<4"
+aiohttp = "<4,>=3.9.0"
 asyncpg = ">=0.29.0"
 sqlalchemy = {extras = ["asyncio"], version = "*"}
 
