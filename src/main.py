@@ -12,7 +12,7 @@ import sqlalchemy.orm
 import sqlalchemy.ext.asyncio
 from sqlalchemy import select, update
 from sqlalchemy.orm import Mapped, mapped_column
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from aiohttp import ClientSession
 
 engine: sqlalchemy.ext.asyncio.AsyncEngine = None
@@ -339,7 +339,7 @@ async def queue_loop(body: QueueRepeatURLBody) -> QueueLoopReturn:
             repeat.active_since = datetime.datetime.now(tz=datetime.timezone.utc)
     return QueueLoopReturn(repeat_id=repeat.id)
 
-class CurrentJobReturnJob(BaseModel):
+class JobReturn(BaseModel):
     id: int
     url: str
     created_at: datetime.datetime
@@ -350,16 +350,9 @@ class CurrentJobReturnJob(BaseModel):
     failed: datetime.datetime | None
     batches: list[int] = []
 
-class CurrentJobReturn(BaseModel):
-    job: CurrentJobReturnJob | None
-
-@app.get("/current_job")
-async def current_job() -> CurrentJobReturn:
-    job = await get_current_job(get_batches=True)
-    if job is None:
-        return {"job": None}
-    return {
-        "job": CurrentJobReturnJob(
+    @classmethod
+    def from_job(cls, job: Job):
+        return cls(
             id=job.id,
             url=job.url.url,
             created_at=job.created_at,
@@ -370,4 +363,62 @@ async def current_job() -> CurrentJobReturn:
             failed=job.failed,
             batches=[batch.id for batch in job.batches]
         )
+
+class CurrentJobReturn(BaseModel):
+    job: JobReturn | None
+
+@app.get("/current_job")
+async def current_job() -> CurrentJobReturn:
+    job = await get_current_job(get_batches=True)
+    if job is None:
+        return {"job": None}
+    return {
+        "job": JobReturn.from_job(job)
     }
+
+@app.get("/job/{job_id}")
+async def get_job(job_id: int) -> JobReturn:
+    async with async_session() as session, session.begin():
+        stmt = select(Job).where(Job.id == job_id).limit(1)
+        job = await session.scalar(stmt)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return JobReturn.from_job(job)
+    
+class BatchReturn(BaseModel):
+    id: int
+    created_at: datetime.datetime
+    jobs: list[JobReturn] = []
+    
+@app.get("/batch/{batch_id}")
+async def get_batch(batch_id: int):
+    async with async_session() as session, session.begin():
+        stmt = select(Batch).where(Batch.id == batch_id).limit(1)
+        batch = await session.scalar(stmt)
+        if batch is None:
+            raise HTTPException(status_code=404, detail="Batch not found")
+        return {
+            "id": batch.id,
+            "created_at": batch.created_at,
+            "jobs": [JobReturn.from_job(job) for job in batch.jobs]
+        }
+class URLInfoBody(BaseModel):
+    url: str
+
+class URLReturn(BaseModel):
+    jobs: list[JobReturn] = []
+    first_seen: datetime.datetime
+    last_seen: datetime.datetime | None
+
+@app.post("/url")
+async def get_url_info(body: URLInfoBody) -> URLReturn:
+    async with async_session() as session, session.begin():
+        stmt = select(URL).where(URL.url == body.url).limit(1)
+        url = await session.scalar(stmt)
+        if url is None:
+            raise HTTPException(status_code=404, detail="URL not found")
+        return {
+            "jobs": [JobReturn.from_job(job) for job in url.jobs],
+            "first_seen": url.first_seen,
+            "last_seen": url.last_seen
+        }
