@@ -167,7 +167,7 @@ async def repeat_url_worker():
 async def lifespan(_: FastAPI):
     global engine, async_session
     if engine is None:
-        engine = sqlalchemy.ext.asyncio.create_async_engine(environ.get("DATABASE_URL", "sqlite://db.sqlite"))
+        engine = sqlalchemy.ext.asyncio.create_async_engine(environ.get("DATABASE_URL", "sqlite:///db.sqlite"))
     async_session = sqlalchemy.ext.asyncio.async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
