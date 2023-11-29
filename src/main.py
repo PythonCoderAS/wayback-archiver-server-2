@@ -125,8 +125,9 @@ async def url_worker():
                                 await session.execute(update(URL).where(URL.id == next_job.url.id).values(last_seen=saved_dt))
                                 await session.execute(update(Job).where(Job.id == next_job.id).values(completed=saved_dt))
                             break
-                except Exception as e:
-                    raise e
+                except Exception:
+                    pass
+                await asyncio.sleep(10)
             else: # Ran out of retries, try again
                 async with session.begin():
                     if next_job.retry < 4:
@@ -154,6 +155,7 @@ async def repeat_url_worker():
                         # batch = await Batch.objects.create()
                         batch = Batch()
                         created_at = curtime
+                        session.add(batch)
                     queued.append(Job(url=job.url, priority=10, batches=[batch, job.batch]))
             if queued:
                 session.add_all(queued)
