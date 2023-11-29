@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY ./Pipfile ./Pipfile.lock ./
 RUN ["pip", "install", "pipenv"]
-RUN ["pipenv", "requirements", "--dev", ">", "requirements.txt"]
+RUN ["sh", "-c", "pipenv requirements --dev > requirements.txt"]
 
 FROM python:3.12-alpine as build
 
