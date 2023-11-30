@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 import datetime
 from os import environ
 import re
-from typing import Annotated, Awaitable, Generic, TypeVar, TypedDict
+from typing import Annotated, Awaitable, Generic, TypeVar
 from traceback import print_exc
 
 from pydantic import BaseModel
@@ -15,63 +15,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from fastapi import FastAPI, HTTPException, Path, Query
 from aiohttp import ClientSession
 
-KeyT = TypeVar("KeyT")
-ValueT = TypeVar("ValueT")
-
-# LRUCache that has sections is accessed asynchonously
-class LRUCache(Generic[KeyT, ValueT]):
-    def __init__(self, max_size: int = 1024):
-        self.max_size = max_size
-        self._cache = {}
-        self._lru = []
-        self._lock = asyncio.Lock()
-    
-    async def get(self, key: KeyT) -> ValueT | None:
-        async with self._lock:
-            if key in self._cache:
-                self._lru.remove(key)
-                self._lru.append(key)
-                return self._cache[key]
-            else:
-                return None
-            
-    async def set(self, key: KeyT, value: ValueT) -> None:
-        async with self._lock:
-            if key in self._cache:
-                self._lru.remove(key)
-            elif len(self._cache) >= self.max_size:
-                del self._cache[self._lru.pop(0)]
-            self._cache[key] = value
-            self._lru.append(key)
-    
-    async def delete(self, key: KeyT) -> None:
-        async with self._lock:
-            if key in self._cache:
-                del self._cache[key]
-                self._lru.remove(key)
-    
-    async def prune(self, keep: int | None = 128) -> None:
-        async with self._lock:
-            if keep is None:
-                self._cache = {}
-                self._lru = []
-            else:
-                self._lru = self._lru[-keep:]
-                self._cache = {key: self._cache[key] for key in self._lru}
-
-class LRUCacheConsumers(TypedDict):
-    batch_job_count: LRUCache[tuple[int, datetime.datetime | None], int] # Key is (batch_id, after)
-    job_count: LRUCache[datetime.datetime | None, int] # Key is after
-    batch_count: LRUCache[datetime.datetime | None, int] # Key is after
-    url_count: LRUCache[datetime.datetime | None, int] # Key is after
-    repeat_url_count: LRUCache[datetime.datetime | None, int] # Key is after
-
-
 engine: sqlalchemy.ext.asyncio.AsyncEngine = None
 async_session: sqlalchemy.ext.asyncio.async_sessionmaker[sqlalchemy.ext.asyncio.AsyncSession] = None
 client_session: ClientSession = None
-cache: LRUCacheConsumers = None
-
 class Base(sqlalchemy.orm.MappedAsDataclass, sqlalchemy.ext.asyncio.AsyncAttrs, sqlalchemy.orm.DeclarativeBase):
     pass
 
@@ -226,7 +172,6 @@ async def lifespan(_: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     workers.append(asyncio.create_task(exception_logger(url_worker(), name="url_worker")))
     workers.append(asyncio.create_task(exception_logger(repeat_url_worker(), name="repeat_url_worker")))
-    cache = {key: LRUCache() for key in LRUCacheConsumers.__required_keys__}
     try:
         yield
     finally:
@@ -487,19 +432,15 @@ Page = Annotated[int, Query(title="Page", description="The page of results you w
 
 @app.get("/jobs")
 async def get_jobs(page: Page = 1, after: datetime.datetime | None = None, desc: bool = False) -> PaginationOutput[JobReturn]:
-    job_count_cache = cache["job_count"]
-    cache_key = after
     async with async_session() as session, session.begin():
-        if (job_count := await job_count_cache.get(cache_key)) is None:
-            stmt = select(sqlalchemy.func.count(Job.id))
-            if after:
-                stmt = stmt.where(Job.created_at > after)
-            job_count = await session.scalar(stmt)
-            await job_count_cache.set(cache_key, job_count)
-        stmt = select(Job).order_by(Job.id.desc() if desc else Job.id.asc()).offset((page - 1) * 100).limit(100).options(sqlalchemy.orm.joinedload(Job.batches))
+        stmt = select(sqlalchemy.func.count(Job.id))
         if after:
             stmt = stmt.where(Job.created_at > after)
-        result = await session.scalars(stmt)
+        job_count = await session.scalar(stmt)
+        stmt2 = select(Job).order_by(Job.id.desc() if desc else Job.id.asc()).offset((page - 1) * 100).limit(100).options(sqlalchemy.orm.joinedload(Job.batches))
+        if after:
+            stmt2 = stmt2.where(Job.created_at > after)
+        result = await session.scalars(stmt2)
         return PaginationOutput(
             data=[JobReturn.from_job(job) for job in result.unique().all()],
             pagination=PaginationInfo(
@@ -511,19 +452,15 @@ async def get_jobs(page: Page = 1, after: datetime.datetime | None = None, desc:
 
 @app.get("/batch/{batch_id}/jobs")
 async def get_batch_jobs(batch_id: Annotated[int, Path(title="Batch ID", description="The ID of the batch you want info on", ge=1)], page: Page = 1, after: datetime.datetime | None = None, desc: bool = False) -> PaginationOutput[JobReturn]:
-    job_count_cache = cache["batch_job_count"]
-    cache_key = (batch_id, after)
     async with async_session() as session, session.begin():
-        if (job_count := await job_count_cache.get(cache_key)) is None:
-            stmt = select(sqlalchemy.func.count(Job.id)).join(Batch.jobs).where(Batch.id == batch_id)
-            if after:
-                stmt = stmt.where(Job.created_at > after)
-            job_count = await session.scalar(stmt)
-            await job_count_cache.set(cache_key, job_count)
-        stmt = select(Job).join(Batch.jobs).where(Batch.id == batch_id).order_by(Job.id.desc() if desc else Job.id.asc()).offset((page - 1) * 100).limit(100).options(sqlalchemy.orm.joinedload(Job.batches))
+        stmt = select(sqlalchemy.func.count(Job.id)).join(Batch.jobs).where(Batch.id == batch_id)
         if after:
             stmt = stmt.where(Job.created_at > after)
-        result = await session.scalars(stmt)
+        job_count = await session.scalar(stmt)
+        stmt2 = select(Job).join(Batch.jobs).where(Batch.id == batch_id).order_by(Job.id.desc() if desc else Job.id.asc()).offset((page - 1) * 100).limit(100).options(sqlalchemy.orm.joinedload(Job.batches))
+        if after:
+            stmt2 = stmt2.where(Job.created_at > after)
+        result = await session.scalars(stmt2)
         return PaginationOutput(
             data=[JobReturn.from_job(job) for job in result.unique().all()],
             pagination=PaginationInfo(
@@ -535,19 +472,15 @@ async def get_batch_jobs(batch_id: Annotated[int, Path(title="Batch ID", descrip
 
 @app.get("/batches")
 async def get_batches(page: Page = 1, after: datetime.datetime | None = None, desc: bool = False) -> PaginationOutput[BatchReturn]:
-    batch_count_cache = cache["batch_count"]
-    cache_key = after
     async with async_session() as session, session.begin():
-        if (batch_count := await batch_count_cache.get(cache_key)) is None:
-            stmt = select(sqlalchemy.func.count(Batch.id))
-            if after:
-                stmt = stmt.where(Batch.created_at > after)
-            batch_count = await session.scalar(stmt)
-            await batch_count_cache.set(cache_key, batch_count)
-        stmt = select(Batch).order_by(Batch.id.desc() if desc else Batch.id.asc()).offset((page - 1) * 100).limit(100).options(sqlalchemy.orm.joinedload(Batch.jobs))
+        stmt = select(sqlalchemy.func.count(Batch.id))
         if after:
             stmt = stmt.where(Batch.created_at > after)
-        result = await session.scalars(stmt)
+        batch_count = await session.scalar(stmt)
+        stmt2 = select(Batch).order_by(Batch.id.desc() if desc else Batch.id.asc()).offset((page - 1) * 100).limit(100).options(sqlalchemy.orm.joinedload(Batch.jobs))
+        if after:
+            stmt2 = stmt2.where(Batch.created_at > after)
+        result = await session.scalars(stmt2)
         return PaginationOutput(
             data=[BatchReturn(id=batch.id, created_at=batch.created_at, jobs=len(batch.jobs)) for batch in result.unique().all()],
             pagination=PaginationInfo(
