@@ -453,7 +453,7 @@ class JobPaginationDefaultQueryArgs(PaginationDefaultQueryArgs):
     retries_greater_than: Literal[0, 1, 2, 3] | None
     retries_equal_to: Literal[0, 1, 2, 3, 4] | None
 
-async def job_pagination_default_query_args(page: Page = 1, after: datetime.datetime | None = None, desc: bool = False, not_started: bool = False, completed: bool = False, delayed: bool = False, failed: bool = False, retries_less_than: Literal[1, 2, 3, 4] | None = None, retries_greater_than: Literal[0, 1, 2, 3] | None = None, retries_equal_to: Literal[0, 1, 2, 3, 4] | None = None) -> JobPaginationDefaultQueryArgs:
+async def job_pagination_default_query_args(page: Page = 1, after: datetime.datetime | None = None, desc: bool = False, not_started: bool = True, completed: bool = True, delayed: bool = True, failed: bool = True, retries_less_than: Literal[1, 2, 3, 4] | None = None, retries_greater_than: Literal[0, 1, 2, 3] | None = None, retries_equal_to: Literal[0, 1, 2, 3, 4] | None = None) -> JobPaginationDefaultQueryArgs:
     return {
         "page": page,
         "after": after,
@@ -475,7 +475,7 @@ def apply_job_filtering(query_params: JobPaginationDefaultQueryArgs, is_count_qu
 def apply_job_filtering(query_params: JobPaginationDefaultQueryArgs, is_count_query: Literal[False], /) -> sqlalchemy.Select[tuple[Job]]: ...
 def apply_job_filtering(query_params: JobPaginationDefaultQueryArgs, is_count_query: bool = False, /) -> sqlalchemy.Select:
     in_statement = select(sqlalchemy.func.count(Job.id) if is_count_query else Job)
-    if [query_params["not_started"], query_params["completed"], query_params["delayed"], query_params["failed"]].count(True) != 4:
+    if len({query_params["not_started"], query_params["completed"], query_params["delayed"], query_params["failed"]}) != 1: # If they are all the same, we can take a shortcut and not apply anything
         # If all 4 are given, we can take a shortcut and not apply anything
         if query_params["not_started"]:
             in_statement = in_statement.where((Job.completed == None) & (Job.failed == None) & (Job.delayed_until == None))
