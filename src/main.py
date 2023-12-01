@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 import datetime
 from os import environ
 import re
-from typing import Annotated, Awaitable, Generic, TypeVar
+from typing import Annotated, Awaitable, Generic, Literal, TypeVar, TypedDict, overload
 from traceback import print_exc
 
 from pydantic import BaseModel
@@ -12,7 +12,7 @@ import sqlalchemy.orm
 import sqlalchemy.ext.asyncio
 from sqlalchemy import select, update
 from sqlalchemy.orm import Mapped, mapped_column
-from fastapi import FastAPI, HTTPException, Path, Query
+from fastapi import Depends, FastAPI, HTTPException, Path, Query
 from aiohttp import ClientSession
 
 engine: sqlalchemy.ext.asyncio.AsyncEngine = None
@@ -122,7 +122,7 @@ async def url_worker():
                             saved_dt = datetime.datetime.strptime(match.group(1), "%Y%m%d%H%M%S").replace(tzinfo=datetime.timezone.utc)
                             async with session.begin():
                                 await session.execute(update(URL).where(URL.id == next_job.url.id).values(last_seen=saved_dt))
-                                await session.execute(update(Job).where(Job.id == next_job.id).values(completed=saved_dt))
+                                await session.execute(update(Job).where(Job.id == next_job.id).values(completed=saved_dt, failed=None, delayed_until=None))
                             break
                 except Exception:
                     pass
@@ -133,7 +133,7 @@ async def url_worker():
                         print(f"Retrying job id={next_job.id} for the {next_job.retry + 1} time.")
                         await session.execute(update(Job).where(Job.id == next_job.id).values(retry=next_job.retry + 1, delayed_until=curtime + datetime.timedelta(minutes=45)))
                     else:
-                        await session.execute(update(Job).where(Job.id == next_job.id).values(failed=curtime))
+                        await session.execute(update(Job).where(Job.id == next_job.id).values(failed=curtime, delayed_until=None))
 
 async def repeat_url_worker():
     batch = None
@@ -430,48 +430,116 @@ class PaginationOutput(BaseModel, Generic[ModelT]):
 
 Page = Annotated[int, Query(title="Page", description="The page of results you want", ge=1, le=100)]
 
+class PaginationDefaultQueryArgs(TypedDict):
+    page: Page
+    after: datetime.datetime | None
+    desc: bool
+
+async def pagination_default_query_args(page: Page = 1, after: datetime.datetime | None = None, desc: bool = False) -> PaginationDefaultQueryArgs:
+    return {
+        "page": page,
+        "after": after,
+        "desc": desc
+    }
+
+PaginationQueryArgs = Annotated[PaginationDefaultQueryArgs, Depends(pagination_default_query_args)]
+
+class JobPaginationDefaultQueryArgs(PaginationDefaultQueryArgs):
+    not_started: bool
+    completed: bool
+    delayed: bool
+    failed: bool
+    retries_less_than: Literal[1, 2, 3, 4] | None
+    retries_greater_than: Literal[0, 1, 2, 3] | None
+    retries_equal_to: Literal[0, 1, 2, 3, 4] | None
+
+async def job_pagination_default_query_args(page: Page = 1, after: datetime.datetime | None = None, desc: bool = False, not_started: bool = False, completed: bool = False, delayed: bool = False, failed: bool = False, retries_less_than: Literal[1, 2, 3, 4] | None = None, retries_greater_than: Literal[0, 1, 2, 3] | None = None, retries_equal_to: Literal[0, 1, 2, 3, 4] | None = None) -> JobPaginationDefaultQueryArgs:
+    return {
+        "page": page,
+        "after": after,
+        "desc": desc,
+        "not_started": not_started,
+        "completed": completed,
+        "delayed": delayed,
+        "failed": failed,
+        "retries_less_than": retries_less_than,
+        "retries_greater_than": retries_greater_than,
+        "retries_equal_to": retries_equal_to
+    }
+
+JobPaginationQueryArgs = Annotated[JobPaginationDefaultQueryArgs, Depends(job_pagination_default_query_args)]
+
+@overload
+def apply_job_filtering(query_params: JobPaginationDefaultQueryArgs, is_count_query: Literal[True], /) -> sqlalchemy.Select[tuple[int]]: ...
+@overload
+def apply_job_filtering(query_params: JobPaginationDefaultQueryArgs, is_count_query: Literal[False], /) -> sqlalchemy.Select[tuple[Job]]: ...
+def apply_job_filtering(query_params: JobPaginationDefaultQueryArgs, is_count_query: bool = False, /) -> sqlalchemy.Select:
+    in_statement = select(sqlalchemy.func.count(Job.id) if is_count_query else Job)
+    if [query_params["not_started"], query_params["completed"], query_params["delayed"], query_params["failed"]].count(True) != 4:
+        # If all 4 are given, we can take a shortcut and not apply anything
+        if query_params["not_started"]:
+            in_statement = in_statement.where((Job.completed == None) & (Job.failed == None) & (Job.delayed_until == None))
+        if query_params["completed"]:
+            in_statement = in_statement.where(Job.completed != None)
+        if query_params["delayed"]:
+            in_statement = in_statement.where(Job.delayed_until != None)
+        if query_params["failed"]:
+            in_statement = in_statement.where(Job.failed != None)
+    retry_param_count = [query_params["retries_less_than"], query_params["retries_greater_than"], query_params["retries_equal_to"]].count(None)
+    if retry_param_count <= 2:
+        raise HTTPException(status_code=400, detail="You must provide only one of retries_less_than, retries_greater_than, or retries_equal_to")
+    elif retry_param_count != 3:
+        if query_params["retries_less_than"] is not None:
+            in_statement = in_statement.where(Job.retry < query_params["retries_less_than"])
+        if query_params["retries_greater_than"] is not None:
+            in_statement = in_statement.where(Job.retry > query_params["retries_greater_than"])
+        if query_params["retries_equal_to"] is not None:
+            in_statement = in_statement.where(Job.retry == query_params["retries_equal_to"])
+    if query_params["after"]:
+        in_statement = in_statement.where(Job.created_at > query_params["after"])
+    if not is_count_query:
+        in_statement = in_statement.limit(100).order_by(Job.id.desc() if query_params["desc"] else Job.id.asc()).offset((query_params["page"] - 1) * 100)
+    return in_statement
+
+        
+
+
 @app.get("/jobs")
-async def get_jobs(page: Page = 1, after: datetime.datetime | None = None, desc: bool = False) -> PaginationOutput[JobReturn]:
+async def get_jobs(query_params: JobPaginationQueryArgs) -> PaginationOutput[JobReturn]:
     async with async_session() as session, session.begin():
-        stmt = select(sqlalchemy.func.count(Job.id))
-        if after:
-            stmt = stmt.where(Job.created_at > after)
-        job_count = await session.scalar(stmt)
-        stmt2 = select(Job).order_by(Job.id.desc() if desc else Job.id.asc()).offset((page - 1) * 100).limit(100).options(sqlalchemy.orm.joinedload(Job.batches))
-        if after:
-            stmt2 = stmt2.where(Job.created_at > after)
-        result = await session.scalars(stmt2)
+        job_count = await session.scalar(apply_job_filtering(query_params, True))
+        stmt = apply_job_filtering(query_params, False).options(sqlalchemy.orm.joinedload(Job.batches))
+        result = await session.scalars(stmt)
         return PaginationOutput(
             data=[JobReturn.from_job(job) for job in result.unique().all()],
             pagination=PaginationInfo(
-                current_page=page,
+                current_page=query_params["page"],
                 total_pages=job_count // 100 + 1,
                 items=job_count
             )
         )
 
 @app.get("/batch/{batch_id}/jobs")
-async def get_batch_jobs(batch_id: Annotated[int, Path(title="Batch ID", description="The ID of the batch you want info on", ge=1)], page: Page = 1, after: datetime.datetime | None = None, desc: bool = False) -> PaginationOutput[JobReturn]:
+async def get_batch_jobs(batch_id: Annotated[int, Path(title="Batch ID", description="The ID of the batch you want info on", ge=1)], query_params: JobPaginationQueryArgs) -> PaginationOutput[JobReturn]:
     async with async_session() as session, session.begin():
-        stmt = select(sqlalchemy.func.count(Job.id)).join(Batch.jobs).where(Batch.id == batch_id)
-        if after:
-            stmt = stmt.where(Job.created_at > after)
+        stmt = apply_job_filtering(query_params, True).join(Batch.jobs).where(Batch.id == batch_id)
         job_count = await session.scalar(stmt)
-        stmt2 = select(Job).join(Batch.jobs).where(Batch.id == batch_id).order_by(Job.id.desc() if desc else Job.id.asc()).offset((page - 1) * 100).limit(100).options(sqlalchemy.orm.joinedload(Job.batches))
-        if after:
-            stmt2 = stmt2.where(Job.created_at > after)
+        stmt2 = apply_job_filtering(query_params, False).join(Batch.jobs).where(Batch.id == batch_id).options(sqlalchemy.orm.joinedload(Job.batches))
         result = await session.scalars(stmt2)
         return PaginationOutput(
             data=[JobReturn.from_job(job) for job in result.unique().all()],
             pagination=PaginationInfo(
-                current_page=page,
+                current_page=query_params["page"],
                 total_pages=job_count // 100 + 1,
                 items=job_count
             )
         )
 
 @app.get("/batches")
-async def get_batches(page: Page = 1, after: datetime.datetime | None = None, desc: bool = False) -> PaginationOutput[BatchReturn]:
+async def get_batches(query_params: PaginationQueryArgs) -> PaginationOutput[BatchReturn]:
+    after = query_params["after"]
+    page = query_params["page"]
+    desc = query_params["desc"]
     async with async_session() as session, session.begin():
         stmt = select(sqlalchemy.func.count(Batch.id))
         if after:
@@ -490,6 +558,51 @@ async def get_batches(page: Page = 1, after: datetime.datetime | None = None, de
             )
         )
 
+@app.get("/repeat_urls")
+async def get_repeat_urls(query_params: PaginationQueryArgs) -> PaginationOutput[RepeatURL]:
+    after = query_params["after"]
+    page = query_params["page"]
+    desc = query_params["desc"]
+    async with async_session() as session, session.begin():
+        stmt = select(sqlalchemy.func.count(RepeatURL.id))
+        if after:
+            stmt = stmt.where(RepeatURL.created_at > after)
+        repeat_url_count = await session.scalar(stmt)
+        stmt2 = select(RepeatURL).order_by(RepeatURL.id.desc() if desc else RepeatURL.id.asc()).offset((page - 1) * 100).limit(100)
+        if after:
+            stmt2 = stmt2.where(RepeatURL.created_at > after)
+        result = await session.scalars(stmt2)
+        return PaginationOutput(
+            data=result.all(),
+            pagination=PaginationInfo(
+                current_page=page,
+                total_pages=repeat_url_count // 100 + 1,
+                items=repeat_url_count
+            )
+        )
+    
+@app.get("/urls")
+async def get_urls(query_params: PaginationQueryArgs, unique: bool = True) -> PaginationOutput[URL]:
+    after = query_params["after"]
+    page = query_params["page"]
+    desc = query_params["desc"]
+    async with async_session() as session, session.begin():
+        stmt = select(sqlalchemy.func.count(URL.id))
+        if after:
+            stmt = stmt.where(URL.first_seen > after)
+        url_count = await session.scalar(stmt)
+        stmt2 = select(URL).order_by(URL.id.desc() if desc else URL.id.asc()).offset((page - 1) * 100).limit(100)
+        if after:
+            stmt2 = stmt2.where(URL.first_seen > after)
+        result = await session.scalars(stmt2)
+        return PaginationOutput(
+            data=result.unique().all(),
+            pagination=PaginationInfo(
+                current_page=page,
+                total_pages=url_count // 100 + 1,
+                items=url_count
+            )
+        )
 
 class URLInfoBody(BaseModel):
     url: str
