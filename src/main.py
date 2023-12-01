@@ -3,8 +3,11 @@ from contextlib import asynccontextmanager
 import datetime
 from os import environ
 import re
-from typing import Annotated, Awaitable, Generic, Literal, TypeVar, TypedDict, overload
+from typing import Annotated, Awaitable, Callable, Generic, Literal, TypeVar, TypedDict, overload
 from traceback import print_exc
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.types import Scope, Receive, Send
 
 from pydantic import BaseModel
 import sqlalchemy
@@ -12,12 +15,13 @@ import sqlalchemy.orm
 import sqlalchemy.ext.asyncio
 from sqlalchemy import select, update
 from sqlalchemy.orm import Mapped, mapped_column
-from fastapi import Depends, FastAPI, HTTPException, Path, Query
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request, Response
 from aiohttp import ClientSession
 
 engine: sqlalchemy.ext.asyncio.AsyncEngine = None
 async_session: sqlalchemy.ext.asyncio.async_sessionmaker[sqlalchemy.ext.asyncio.AsyncSession] = None
 client_session: ClientSession = None
+
 class Base(sqlalchemy.orm.MappedAsDataclass, sqlalchemy.ext.asyncio.AsyncAttrs, sqlalchemy.orm.DeclarativeBase):
     pass
 
@@ -181,6 +185,20 @@ async def lifespan(_: FastAPI):
             await engine.dispose()
 
 app = FastAPI(lifespan=lifespan)
+static_files = StaticFiles(directory="frontend/dist", html=True)
+app.mount("/app", static_files, name="frontend")
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5174"], allow_methods=["*"], allow_headers=["*"])
+
+# Serves /index.html if we are in /app and there is a 404
+@app.middleware("http")
+async def spa_middleware(req: Request, call_next: Callable[[Request], Awaitable[Response]]):
+    resp = await call_next(req)
+    if resp.status_code == 404 and req.url.path.startswith("/app"):
+        # Note: Find a better way to do this!
+        req.scope["path"] = "/app/index.html"
+        resp = await call_next(req)
+    return resp
+
 workers: list[asyncio.Task] = []
 
 class RetryCount(BaseModel):
