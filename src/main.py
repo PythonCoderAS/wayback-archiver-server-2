@@ -130,7 +130,7 @@ async def url_worker():
                 except Exception:
                     print("Skipping exception during URL archiving:")
                     print_exc()
-                await asyncio.sleep(10)
+                await asyncio.sleep(30)
             else: # Ran out of retries, try again
                 async with session.begin():
                     if next_job.retry < 4:
