@@ -9,3 +9,4 @@ export const { GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, TRACE } = client;
 
 export type JobMaybe = paths["/current_job"]["get"]["responses"]["200"]["content"]["application/json"]["job"];
 export type Job = NonNullable<JobMaybe>;
+export type Stats = paths["/stats"]["get"]["responses"]["200"]["content"]["application/json"];

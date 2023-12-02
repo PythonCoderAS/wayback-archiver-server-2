@@ -1,5 +1,5 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
-import Sidebar from "./Sidebar";
+import Sidebar from "./AppFrame";
 import Home from "./routes/Home";
 
 export default function App() {

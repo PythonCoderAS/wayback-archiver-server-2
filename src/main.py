@@ -187,7 +187,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(lifespan=lifespan)
 static_files = StaticFiles(directory="frontend/dist", html=True)
 app.mount("/app", static_files, name="frontend")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5174"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])
 
 # Serves /index.html if we are in /app and there is a 404
 @app.middleware("http")
