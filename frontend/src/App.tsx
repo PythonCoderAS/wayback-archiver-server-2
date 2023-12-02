@@ -16,10 +16,10 @@ export default function App() {
             Component: Home,
           },
           {
-            path: "batches",
+            path: "batch",
           },
           {
-            path: "batches/:batchId",
+            path: "batch/:batchId",
             Component: ViewBatch,
           },
           { path: "*", Component: Error404 },

@@ -68,10 +68,10 @@ function Sidebar() {
           <List>
             <ListItemLink to="/">Home</ListItemLink>
             <Divider />
-            <SidebarSection title="Batches">
-              <ListItemLink to="/batches">View All</ListItemLink>
-              <ListItemLink to="/batches/new">Create New</ListItemLink>
-              <ListItemLink to="/batches/view">View Batch</ListItemLink>
+            <SidebarSection title="Batch">
+              <ListItemLink to="/batch">View All Batches</ListItemLink>
+              <ListItemLink to="/batch/new">Create New Batch</ListItemLink>
+              <ListItemLink to="/batch/view">View Batch</ListItemLink>
             </SidebarSection>
           </List>
         </Paper>
