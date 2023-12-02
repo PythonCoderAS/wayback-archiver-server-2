@@ -8,7 +8,7 @@ RUN ["pip", "install", "pipenv"]
 RUN ["sh", "-c", "pipenv requirements --dev > requirements.txt"]
 RUN ["rm", "Pipfile", "Pipfile.lock"]
 
-FROM python:3.12 as build-server
+FROM python:3.12 as build-server-deps
 
 # Path: /app
 WORKDIR /app
@@ -19,26 +19,43 @@ RUN ["python3", "-m", "venv", "/venv"]
 ENV PATH="/venv/bin:$PATH"
 RUN ["python3", "-m", "pip", "install", "-r", "requirements.txt"]
 
-COPY src/main.py src/main.py
-COPY dump_openapi.py .
-ENV FASTAPI_OPENAPI_OUTPUT="/tmp/openapi.json"
-RUN ["mkdir", "-p", "frontend/dist"]
-RUN ["python3", "dump_openapi.py"]
-
-FROM node:20 as build-frontend
+FROM node:20 as build-frontend-deps
 
 # Path: /tmp/
 WORKDIR /tmp/
 
-COPY ./frontend frontend
+COPY ./frontend/package.json frontend/package.json
 WORKDIR /tmp/frontend
 RUN ["npm", "install"]
-COPY --from=build-server /tmp/openapi.json /tmp/openapi.json
+
+FROM python:3.12 as build-server-openapi
+
+WORKDIR /app
+
+COPY --from=build-server-deps /venv /venv
+
+COPY src/main.py src/main.py
+COPY dump_openapi.py .
+ENV FASTAPI_OPENAPI_OUTPUT="/tmp/openapi.json"
+RUN ["mkdir", "-p", "frontend/dist"]
+
+ENV PATH="/venv/bin:$PATH"
+RUN ["python3", "dump_openapi.py"]
+
+FROM node:20 as build-frontend
+
+COPY --from=build-server-openapi /tmp/openapi.json /tmp/openapi.json
+COPY ./frontend /tmp/frontend
+COPY --from=build-frontend-deps /tmp/frontend/node_modules /tmp/frontend/node_modules
+
+WORKDIR /tmp/frontend
+
 RUN ["npx", "openapi-typescript", "/tmp/openapi.json", "-o", "src/api/schema.d.ts"]
 RUN ["npm", "run", "build"]
 
 FROM python:3.12-slim as production
-COPY --from=build-server /venv /venv
+
+COPY --from=build-server-deps /venv /venv
 COPY src/main.py .
 COPY --from=build-frontend /tmp/frontend/dist ./frontend/dist
 ENV PATH="/venv/bin:$PATH"
