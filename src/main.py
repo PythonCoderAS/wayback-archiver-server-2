@@ -7,7 +7,6 @@ from typing import Annotated, Awaitable, Callable, Generic, Literal, TypeVar, Ty
 from traceback import print_exc
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.types import Scope, Receive, Send
 
 from pydantic import BaseModel
 import sqlalchemy
@@ -129,7 +128,8 @@ async def url_worker():
                                 await session.execute(update(Job).where(Job.id == next_job.id).values(completed=saved_dt, failed=None, delayed_until=None))
                             break
                 except Exception:
-                    pass
+                    print("Skipping exception during URL archiving:")
+                    print_exc()
                 await asyncio.sleep(10)
             else: # Ran out of retries, try again
                 async with session.begin():
