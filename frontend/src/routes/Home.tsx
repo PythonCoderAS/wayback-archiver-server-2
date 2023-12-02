@@ -157,10 +157,7 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([
-      GET(
-        ("/current_job" +
-          (loadCount === 0 ? "" : "?count=" + loadCount)) as "/current_job"
-      )
+      GET("/current_job")
         .catch((error) => {
           console.error("Error getting current job", error);
           return { data: { job: null } };
