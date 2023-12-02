@@ -13,9 +13,12 @@ import {
   Typography,
   createTheme,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { GET, Stats, type JobMaybe } from "../api/api";
 import BatchChip from "../misc/BatchChip";
+import { SetTitleContext } from "../AppFrame";
+import InlineSkeletonDisplay from "../misc/InlineSkeletonDisplay";
+import inlineSkeleton from "../misc/inlineSkeleton";
 
 const theme = createTheme();
 
@@ -28,18 +31,72 @@ function JobBanner({
   startTime: Date;
   count?: number | null;
 }) {
+  let possibleTimeStr: string | null = null;
   let color = theme.palette.primary;
   if (count !== null) {
-    color = theme.palette.success;
+    if (job) {
+      if (job.delayed_until) {
+        color = theme.palette.warning;
+        possibleTimeStr = job.delayed_until;
+      } else if (job.failed) {
+        color = theme.palette.error;
+        possibleTimeStr = job.failed;
+      } else {
+        color = theme.palette.success;
+        possibleTimeStr = job.completed;
+      }
+    }
   } else if (job === null) {
     color = theme.palette.secondary;
   }
-  const finishedTime: Date | null = count
+  const finishedTime: Date | null = possibleTimeStr
+    ? new Date(possibleTimeStr)
+    : count
     ? new Date(startTime.getTime() + count * 1000)
     : null;
   const finishedTimeArchiveFormat: string | null = finishedTime
     ? finishedTime.toISOString().replaceAll(/[^\d]/g, "").substring(0, 14)
     : null;
+
+  let statSection: React.ReactElement | null = null;
+  let infoSection: React.ReactElement | null = null;
+  if (color === theme.palette.success) {
+    const actionDuration = finishedTime!.getTime() - (job?.created_at ? new Date(job.created_at) : startTime).getTime();
+    // Convert actionDuration to seconds and keep the 100ths place
+    const actionDurationSeconds = Math.round(actionDuration / 100) / 10;
+    statSection = (
+      <span>
+        Completed in {actionDurationSeconds} seconds
+      </span>
+    )
+    infoSection = (
+      <span>
+        <MuiLink
+          href={`https://web.archive.org/web/${finishedTimeArchiveFormat}/${
+            job!.url
+          }`}
+          color="inherit"
+          underline="hover"
+          target="_blank"
+          rel="noreferrer"
+        >
+          View Archive
+        </MuiLink>
+      </span>
+    );
+  } else if (color === theme.palette.warning) {
+    statSection = (
+      <span>
+        Delayed until {finishedTime!.toLocaleTimeString()}
+      </span>
+    )
+    infoSection = (
+      <span>
+        Retries Left: {4-job!.retry}
+      </span>
+    )
+  }
+
   return (
     <Box sx={{ mb: 1.5 }}>
       <Paper sx={{ backgroundColor: color.main, color: color.contrastText }}>
@@ -65,22 +122,9 @@ function JobBanner({
         )}
         {job !== null && (
           <Box sx={{ px: 2, pb: 1.5 }}>
-            {finishedTimeArchiveFormat ? (
-              <span>
-                <MuiLink
-                  href={`https://web.archive.org/web/${finishedTimeArchiveFormat}/${
-                    job!.url
-                  }`}
-                  color="inherit"
-                  underline="hover"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View Archive
-                </MuiLink>
-                {" | "}
-              </span>
-            ) : null}
+            <span>Started at {new Date(job.created_at).toLocaleString()}{" | "}</span>
+            {statSection}{statSection && " | "}
+            {infoSection}{infoSection && " | "}
             {(job!.batches ?? []).map((batch) => (
               <span>
                 <BatchChip batchId={batch} key={batch} />{" "}
@@ -95,7 +139,6 @@ function JobBanner({
 
 function JobStatTable({
   stats,
-  totalSkeleton,
 }: {
   stats?: {
     r0: number;
@@ -104,8 +147,7 @@ function JobStatTable({
     r3: number;
     r4: number;
     total: number;
-  };
-  totalSkeleton: React.ReactElement;
+  }
 }) {
   const skeleton = <Skeleton variant="text" sx={{ fontSize: "1rem" }} />;
   return (
@@ -141,7 +183,7 @@ function JobStatTable({
         </TableBody>
       </Table>
       <div style={{ textAlign: "right", paddingRight: 20 }}>
-        Total: {stats ? stats.total : totalSkeleton}
+        Total: {stats ? stats.total : inlineSkeleton}
       </div>
     </TableContainer>
   );
@@ -155,6 +197,12 @@ export default function Home() {
   const [oldJobCount, setOldJobCount] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
 
+  const setTitle = useContext(SetTitleContext);
+  useEffect(() => {
+    setTitle("Home");
+  }, [setTitle]);
+  
+
   useEffect(() => {
     Promise.all([
       GET("/current_job")
@@ -165,15 +213,36 @@ export default function Home() {
         .then(({ data }) => {
           const job: JobMaybe = data!.job;
           if ((job === null || currentJob === null) && job !== currentJob) {
-            setOldJob(currentJob);
-            setOldJobCount(loadCount);
+            if (currentJob) {
+              GET("/job/{job_id}", {
+                params: { path: { job_id: currentJob.id } },
+              }).then(({ data }) => {
+                if (data) {
+                  setOldJob(data);
+                } else {
+                  setOldJob(currentJob);
+                }
+                setOldJobCount(loadCount);
+              });
+            } else {
+              setOldJob(currentJob);
+              setOldJobCount(loadCount);
+            }
           } else if (
             job !== null &&
             currentJob !== null &&
             job.id !== currentJob.id
           ) {
-            setOldJob(currentJob);
-            setOldJobCount(loadCount);
+            GET("/job/{job_id}", {
+              params: { path: { job_id: currentJob.id } },
+            }).then(({ data }) => {
+              if (data) {
+                setOldJob(data);
+              } else {
+                setOldJob(currentJob);
+              }
+              setOldJobCount(loadCount);
+            });
           }
           setCurrentJob(job);
         })
@@ -190,16 +259,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- This is safe because loadCount is only set in this effect
   }, [loadCount]);
 
-  const statSkeleton = (
-    <Skeleton
-      variant="text"
-      width={50}
-      sx={{ fontSize: "1rem", display: "inline-block" }}
-    />
-  );
 
-  const BulletStatDisplay = ({ stat }: { stat?: number }) =>
-    stat !== null ? <b>{stat}</b> : statSkeleton;
 
   return (
     <div>
@@ -230,29 +290,29 @@ export default function Home() {
                 Jobs:
                 <ul>
                   <li>
-                    Total Jobs: <BulletStatDisplay stat={stats?.jobs.total} />
+                    Total Jobs: <InlineSkeletonDisplay>{stats?.jobs.total}</InlineSkeletonDisplay>
                   </li>
                   <li>
-                    Failed Jobs: <BulletStatDisplay stat={stats?.jobs.failed} />
+                    Failed Jobs: <InlineSkeletonDisplay>{stats?.jobs.failed}</InlineSkeletonDisplay>
                   </li>
                 </ul>
               </li>
               <li>
-                Batches: <BulletStatDisplay stat={stats?.batches} />
+                Batches: <InlineSkeletonDisplay>{stats?.batches}</InlineSkeletonDisplay>
               </li>
               <li>
                 Repeat URLs:
                 <ul>
                   <li>
                     Active:{" "}
-                    <BulletStatDisplay stat={stats?.repeat_urls.active} />
+                    <InlineSkeletonDisplay>{stats?.repeat_urls.active}</InlineSkeletonDisplay>
                   </li>
                   <li>
                     Inactive:{" "}
-                    <BulletStatDisplay stat={stats?.repeat_urls.inactive} />
+                    <InlineSkeletonDisplay>{stats?.repeat_urls.inactive}</InlineSkeletonDisplay>
                   </li>
                   <li>
-                    Total: <BulletStatDisplay stat={stats?.repeat_urls.total} />
+                    Total: <InlineSkeletonDisplay>{stats?.repeat_urls.total}</InlineSkeletonDisplay>
                   </li>
                 </ul>
               </li>
@@ -264,34 +324,28 @@ export default function Home() {
                     <ul>
                       <li>
                         Archived {"<="} 45 minutes ago:{" "}
-                        <BulletStatDisplay
-                          stat={stats?.urls.super_recently_archived}
-                        />
+                        <InlineSkeletonDisplay>{stats?.urls.super_recently_archived}</InlineSkeletonDisplay>
                       </li>
                       <li>
                         Archived {"<="} 4 hours ago:{" "}
-                        <BulletStatDisplay
-                          stat={stats?.urls.recently_archived}
-                        />
+                        <InlineSkeletonDisplay>{stats?.urls.recently_archived}</InlineSkeletonDisplay>
                       </li>
                       <li>
                         Archived {">"} 4 hours ago:{" "}
-                        <BulletStatDisplay
-                          stat={stats?.urls.not_recently_archived}
-                        />
+                        <InlineSkeletonDisplay>{stats?.urls.not_recently_archived}</InlineSkeletonDisplay>
                       </li>
                       <li>
                         Total:{" "}
-                        <BulletStatDisplay stat={stats?.urls.total_archived} />
+                        <InlineSkeletonDisplay>{stats?.urls.total_archived}</InlineSkeletonDisplay>
                       </li>
                     </ul>
                   </li>
                   <li>
                     Not Archived:{" "}
-                    <BulletStatDisplay stat={stats?.urls.not_archived} />
+                    <InlineSkeletonDisplay>{stats?.urls.not_archived}</InlineSkeletonDisplay>
                   </li>
                   <li>
-                    Total: <BulletStatDisplay stat={stats?.urls.total} />
+                    Total: <InlineSkeletonDisplay>{stats?.urls.total}</InlineSkeletonDisplay>
                   </li>
                 </ul>
               </li>
@@ -304,14 +358,12 @@ export default function Home() {
                 <h4>In Progress</h4>
                 <JobStatTable
                   stats={stats?.jobs.not_done}
-                  totalSkeleton={statSkeleton}
                 />
               </section>
               <section>
                 <h4>Completed Jobs</h4>
                 <JobStatTable
                   stats={stats?.jobs.completed}
-                  totalSkeleton={statSkeleton}
                 />
               </section>
             </section>

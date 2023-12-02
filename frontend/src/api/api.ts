@@ -1,5 +1,5 @@
 import createClient from "openapi-fetch";
-import { paths } from "./schema"; // generated from openapi-typescript
+import { paths, components } from "./schema"; // generated from openapi-typescript
 
 const basePath = import.meta.env.PROD ? "/" : "http://localhost:8000/";
 
@@ -7,6 +7,19 @@ const client = createClient<paths>({ baseUrl: basePath });
 
 export const { GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, TRACE } = client;
 
-export type JobMaybe = paths["/current_job"]["get"]["responses"]["200"]["content"]["application/json"]["job"];
-export type Job = NonNullable<JobMaybe>;
-export type Stats = paths["/stats"]["get"]["responses"]["200"]["content"]["application/json"];
+export type Job = components["schemas"]["JobReturn"];
+export type JobMaybe = Job | null;
+export type Stats = components["schemas"]["Stats"];
+export type Batch = components["schemas"]["BatchReturn"];
+export type RepeatURL = components["schemas"]["RepeatURL"];
+
+export interface Paginated<T> {
+    data: T[];
+    pagination: {
+        current_page: number;
+        total_pages: number;
+        items: number;
+    }
+}
+
+export type PaginatedJob = Paginated<Job>;

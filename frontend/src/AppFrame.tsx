@@ -1,5 +1,6 @@
 import {
   Box,
+  Divider,
   Drawer,
   List,
   ListItemButton,
@@ -7,18 +8,15 @@ import {
   Paper,
   Typography,
 } from "@mui/material";
-import React from "react";
+import React, { PropsWithChildren, useEffect } from "react";
 import {
   Outlet,
   Link as RouterLink,
   LinkProps as RouterLinkProps,
+  To,
   useLocation,
 } from "react-router-dom";
 
-interface ListItemLinkProps {
-  children: string;
-  to: string;
-}
 
 const Link = React.forwardRef<HTMLAnchorElement, RouterLinkProps>(function Link(
   itemProps,
@@ -27,8 +25,7 @@ const Link = React.forwardRef<HTMLAnchorElement, RouterLinkProps>(function Link(
   return <RouterLink ref={ref} {...itemProps} role={undefined} />;
 });
 
-export function ListItemLink(props: ListItemLinkProps) {
-  const { children, to } = props;
+export function ListItemLink({children, to}: PropsWithChildren<{to: To}>) {
   const currentPath = useLocation().pathname;
 
   const child = (
@@ -50,6 +47,15 @@ export function ListItemLink(props: ListItemLinkProps) {
   );
 }
 
+function SidebarSection({ title, children }: PropsWithChildren<{ title: string}>) {
+  return (
+    <section>
+      <Typography variant="h6" textAlign="center">{title}</Typography>
+      {children}
+    </section>
+  )
+}
+
 function Sidebar() {
   return (
     <Box component="aside" sx={{ width: { sm: "10%" }, flexShrink: { sm: 0 } }}>
@@ -61,12 +67,19 @@ function Sidebar() {
         <Paper elevation={0} square>
           <List>
             <ListItemLink to="/">Home</ListItemLink>
+            <Divider />
+            <SidebarSection title="Batches">
+              <ListItemLink to="/batches">View All</ListItemLink>
+              <ListItemLink to="/batches/new">Create New</ListItemLink>
+              <ListItemLink to="/batches/view">View Batch</ListItemLink>
+            </SidebarSection>
           </List>
         </Paper>
       </Drawer>
     </Box>
   );
 }
+
 
 export const SetTitleContext = React.createContext<
   (newTitle: string) => unknown
@@ -75,18 +88,32 @@ export const SetTitleContext = React.createContext<
 export default function AppFrameOutlet() {
   const [title, setTitle] = React.useState("");
 
+  useEffect(() => {
+    document.title = `${title}${
+      title.length > 0 ? " - " : ""
+    }Wayback Archiver Server Data Viewer`;
+  }, [title]);
+
   return (
     <div>
       <Box sx={{ display: "flex" }}>
         <Sidebar />
         <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: "90%" } }}>
-        <Box sx={{ width: { sm: "100%" }, px: 3, pb: 1.5, textAlign: "center", borderBottom: "1px solid black" }}>
-        <Box>
-          <Typography variant="h1" sx={{fontSize: "200%"}}>
-            {title} {title ?? "-"} Wayback Archiver Server Data Viewer
-          </Typography>
-        </Box>
-      </Box>
+          <Box
+            sx={{
+              width: { sm: "100%" },
+              px: 3,
+              pb: 1.5,
+              textAlign: "center",
+              borderBottom: "1px solid black",
+            }}
+          >
+            <Box>
+              <Typography variant="h1" sx={{ fontSize: "200%" }}>
+                {title} {title && "-"} Wayback Archiver Server Data Viewer
+              </Typography>
+            </Box>
+          </Box>
           <SetTitleContext.Provider value={setTitle}>
             <Outlet />
           </SetTitleContext.Provider>
