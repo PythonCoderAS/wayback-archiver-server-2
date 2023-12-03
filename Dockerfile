@@ -26,7 +26,7 @@ WORKDIR /tmp/
 
 COPY ./frontend/package.json frontend/package.json
 WORKDIR /tmp/frontend
-RUN ["npm", "install"]
+RUN ["npm", "ci", "--include=dev"]
 
 FROM python:3.12 as build-server-openapi
 
