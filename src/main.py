@@ -237,7 +237,7 @@ class Stats(BaseModel):
 @app.get("/stats")
 async def stats() -> Stats:
     async with async_session() as session, session.begin():
-        not_done = dict((await session.execute(select(Job.retry, sqlalchemy.func.count(Job.id)).where(Job.completed == None).group_by(Job.retry))).all())
+        not_done = dict((await session.execute(select(Job.retry, sqlalchemy.func.count(Job.id)).where((Job.completed == None) & (Job.failed == None)).group_by(Job.retry))).all())
         completed = dict((await session.execute(select(Job.retry, sqlalchemy.func.count(Job.id)).where(Job.completed != None).group_by(Job.retry))).all())
         failed = (await session.scalar(select(sqlalchemy.func.count(Job.id)).where(Job.failed != None))) or 0
         batches = (await session.scalar(select(sqlalchemy.func.count(Batch.id)))) or 0
