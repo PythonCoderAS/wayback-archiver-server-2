@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "818261d0325f425d01fee9d3b229c5746f7e99b76751cc8f74b1eb7a8fd7d441"
+            "sha256": "39192edaf16571e11ee749c2f7beb82327b9014ff452a89c82a3b0c7cee366f5"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -178,6 +178,14 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==23.2.0"
+        },
+        "certifi": {
+            "hashes": [
+                "sha256:9b469f3a900bf28dc19b8cfbf8019bf47f7fdd1a65a1d4ffb98fc14166beb4d1",
+                "sha256:e036ab49d5b79556f99cfc2d9320b34cfbe5be05c5871b51de9329f0603b0474"
+            ],
+            "markers": "python_version >= '3.6'",
+            "version": "==2023.11.17"
         },
         "fastapi": {
             "hashes": [
@@ -542,6 +550,16 @@
             "markers": "python_version >= '3.7'",
             "version": "==2.14.6"
         },
+        "sentry-sdk": {
+            "extras": [
+                "fastapi"
+            ],
+            "hashes": [
+                "sha256:320a55cdf9da9097a0bead239c35b7e61f53660ef9878861824fd6d9b2eaf3b5",
+                "sha256:81b5b9ffdd1a374e9eb0c053b5d2012155db9cbe76393a8585677b753bd5fdc1"
+            ],
+            "version": "==1.39.1"
+        },
         "sniffio": {
             "hashes": [
                 "sha256:e60305c5e5d314f5389259b7f22aaa33d8f7dee49763119234af3755c55b9101",
@@ -623,6 +641,14 @@
             ],
             "markers": "python_version >= '3.8'",
             "version": "==4.9.0"
+        },
+        "urllib3": {
+            "hashes": [
+                "sha256:55901e917a5896a349ff771be919f8bd99aff50b79fe58fec595eb37bbc56bb3",
+                "sha256:df7aa8afb0148fa78488e7899b2c59b5f4ffcfa82e6c54ccb9dd37c1d7b52d54"
+            ],
+            "markers": "python_version >= '3.6'",
+            "version": "==2.1.0"
         },
         "yarl": {
             "hashes": [

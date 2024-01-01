@@ -25,6 +25,19 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.orm import Mapped, mapped_column
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://84178a5ce2503fced1fc13675fff0f4a@o494335.ingest.sentry.io/4506498048589824",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    traces_sample_rate=1.0,
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate=1.0,
+)
+
 
 # Constants
 min_wait_time_between_archives = datetime.timedelta(hours=1)

@@ -8,6 +8,7 @@ fastapi = "*"
 aiohttp = "<4,>=3.9.0"
 asyncpg = ">=0.29.0"
 sqlalchemy = {extras = ["asyncio"], version = "*"}
+sentry-sdk = {extras = ["fastapi"], version = "*"}
 
 [dev-packages]
 uvicorn = {extras = ["standard"] }
