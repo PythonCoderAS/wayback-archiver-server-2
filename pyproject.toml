@@ -1,0 +1,6 @@
+[tool.ruff.isort]
+combine-as-imports = true
+order-by-type = true
+
+[tool.ruff.format]
+docstring-code-format = true

@@ -11,9 +11,13 @@ sqlalchemy = {extras = ["asyncio"], version = "*"}
 
 [dev-packages]
 uvicorn = {extras = ["standard"] }
+ruff = "*"
+ssort = "*"
 
 [requires]
 python_version = "3.12"
 
-[pipenv]
-allow_prereleases = true
+[scripts]
+lint = "ruff check . --fix"
+format = "ruff format ."
+sort = "ssort ."
