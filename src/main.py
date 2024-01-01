@@ -121,7 +121,7 @@ async def url_worker():
                 continue
             if client_session is None:
                 client_session = ClientSession()
-            for _ in range(5): #" Up to 4 retries (5 attempts total)
+            for retry_num in range(5): #" Up to 4 retries (5 attempts total)
                 try:
                     async with client_session.get("https://web.archive.org/save/" + next_job.url.url, allow_redirects=False) as resp:
                         resp.raise_for_status()
@@ -134,7 +134,7 @@ async def url_worker():
                 except Exception:
                     print("Skipping exception during URL archiving:")
                     print_exc()
-                await asyncio.sleep(30)
+                await asyncio.sleep(10 * pow(2, retry_num))
             else: # Ran out of retries, try again
                 async with session.begin():
                     if next_job.retry < 4:
