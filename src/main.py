@@ -17,6 +17,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request, Response
 from aiohttp import ClientSession
 
+# Constants
+min_wait_time_between_archives = datetime.timedelta(hours=1)
+
 engine: sqlalchemy.ext.asyncio.AsyncEngine = None
 async_session: sqlalchemy.ext.asyncio.async_sessionmaker[sqlalchemy.ext.asyncio.AsyncSession] = None
 client_session: ClientSession = None
@@ -108,11 +111,12 @@ async def url_worker():
             if next_job is None:
                 await asyncio.sleep(1)
                 continue
-            # First, make sure that we don't have to delay this URL (only one capture per 45 minutes)
-            if next_job.url.last_seen and next_job.url.last_seen + datetime.timedelta(minutes=45) > curtime:
-                print(f"Re-querying job id={next_job.id} for 45 minutes. Last seen at {next_job.url.last_seen}. Current time: {curtime}")
+            # First, make sure that we don't have to delay this URL (only one capture per min_wait_time_between_archives)
+            if next_job.url.last_seen and next_job.url.last_seen + min_wait_time_between_archives > curtime:
+                next_queue_time: datetime.datetime = next_job.url.last_seen + min_wait_time_between_archives
+                print(f"Re-querying job id={next_job.id} until {next_queue_time.strftime('%c')}. Last seen at {next_job.url.last_seen.strftime('%c')}.")
                 async with session.begin():
-                    stmt = update(Job).where(Job.id == next_job.id).values(delayed_until=next_job.url.last_seen + datetime.timedelta(minutes=45))
+                    stmt = update(Job).where(Job.id == next_job.id).values(delayed_until=next_queue_time)
                     await session.execute(stmt)
                 continue
             if client_session is None:
@@ -135,7 +139,7 @@ async def url_worker():
                 async with session.begin():
                     if next_job.retry < 4:
                         print(f"Retrying job id={next_job.id} for the {next_job.retry + 1} time.")
-                        await session.execute(update(Job).where(Job.id == next_job.id).values(retry=next_job.retry + 1, delayed_until=curtime + datetime.timedelta(minutes=45)))
+                        await session.execute(update(Job).where(Job.id == next_job.id).values(retry=next_job.retry + 1, delayed_until=curtime + min_wait_time_between_archives))
                     else:
                         await session.execute(update(Job).where(Job.id == next_job.id).values(failed=curtime, delayed_until=None))
 
@@ -241,7 +245,7 @@ async def stats() -> Stats:
         completed = dict((await session.execute(select(Job.retry, sqlalchemy.func.count(Job.id)).where(Job.completed != None).group_by(Job.retry))).all())
         failed = (await session.scalar(select(sqlalchemy.func.count(Job.id)).where(Job.failed != None))) or 0
         batches = (await session.scalar(select(sqlalchemy.func.count(Batch.id)))) or 0
-        super_recently_archived_urls = (await session.scalar(select(sqlalchemy.func.count(URL.id)).where(URL.last_seen != None).where(URL.last_seen > datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(minutes=45)))) or 0
+        super_recently_archived_urls = (await session.scalar(select(sqlalchemy.func.count(URL.id)).where(URL.last_seen != None).where(URL.last_seen > datetime.datetime.now(tz=datetime.timezone.utc) - min_wait_time_between_archives))) or 0
         recently_archived_urls = ((await session.scalar(select(sqlalchemy.func.count(URL.id)).where(URL.last_seen != None).where(URL.last_seen > datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(hours=4)))) or 0) - super_recently_archived_urls
         not_recently_archived_urls = (await session.scalar(select(sqlalchemy.func.count(URL.id)).where(URL.last_seen != None).where(URL.last_seen < datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(hours=4)))) or 0
         not_archived_urls = (await session.scalar(select(sqlalchemy.func.count(URL.id)).where(URL.last_seen == None))) or 0
