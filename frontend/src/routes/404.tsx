@@ -1,6 +1,7 @@
-import { Button, Typography, Box } from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
+
 import { SetTitleContext } from "../AppFrame";
 
 export default function Error404() {

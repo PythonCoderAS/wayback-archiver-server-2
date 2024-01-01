@@ -1,8 +1,9 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
+
 import Sidebar from "./AppFrame";
+import Error404 from "./routes/404";
 import Home from "./routes/Home";
 import ViewBatch from "./routes/batch/ViewBatch";
-import Error404 from "./routes/404";
 
 export default function App() {
   const router = createBrowserRouter(
@@ -28,7 +29,7 @@ export default function App() {
     ],
     {
       basename: "/app/",
-    }
+    },
   );
 
   return <RouterProvider router={router} />;

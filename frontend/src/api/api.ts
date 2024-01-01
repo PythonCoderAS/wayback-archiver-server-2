@@ -1,5 +1,8 @@
 import createClient from "openapi-fetch";
-import { paths, components } from "./schema"; // generated from openapi-typescript
+
+import { components, paths } from "./schema";
+
+// generated from openapi-typescript
 
 const basePath = import.meta.env.PROD ? "/" : "http://localhost:8000/";
 
@@ -14,12 +17,12 @@ export type Batch = components["schemas"]["BatchReturn"];
 export type RepeatURL = components["schemas"]["RepeatURL"];
 
 export interface Paginated<T> {
-    data: T[];
-    pagination: {
-        current_page: number;
-        total_pages: number;
-        items: number;
-    }
+  data: T[];
+  pagination: {
+    current_page: number;
+    total_pages: number;
+    items: number;
+  };
 }
 
 export type PaginatedJob = Paginated<Job>;

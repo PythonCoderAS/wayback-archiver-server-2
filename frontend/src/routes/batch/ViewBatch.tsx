@@ -1,10 +1,11 @@
+import { Box, Link as MuiLink, createTheme } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Batch, GET, RepeatURL } from "../../api/api";
-import { SetTitleContext } from "../../AppFrame";
-import InlineSkeletonDisplay from "../../misc/InlineSkeletonDisplay";
-import { Box, Link as MuiLink, createTheme } from "@mui/material";
+
 import Error404 from "../404";
+import { SetTitleContext } from "../../AppFrame";
+import { Batch, GET, RepeatURL } from "../../api/api";
+import InlineSkeletonDisplay from "../../misc/InlineSkeletonDisplay";
 
 const theme = createTheme();
 
@@ -32,7 +33,7 @@ export default function ViewBatch() {
         }
       })
       .finally(() => setTimeout(() => setCounter(counter + 1), 10000));
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- This is a clock function
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- This is a clock function
   }, [counter]);
 
   useEffect(() => {
@@ -47,10 +48,19 @@ export default function ViewBatch() {
       <section>
         <h2>Batch Info</h2>
         {batch?.repeat_url && (
-          <Box sx={{backgroundColor: theme.palette.primary.main}} color={theme.palette.primary.contrastText} px={2} py={0.5}>
+          <Box
+            sx={{ backgroundColor: theme.palette.primary.main }}
+            color={theme.palette.primary.contrastText}
+            px={2}
+            py={0.5}
+          >
             <p>
               This batch represents{" "}
-              <MuiLink color="inherit" component={Link} to={`/repeat_url/${batch.repeat_url}`}>
+              <MuiLink
+                color="inherit"
+                component={Link}
+                to={`/repeat_url/${batch.repeat_url}`}
+              >
                 Repeat URL {batch.repeat_url}
               </MuiLink>{" "}
               <InlineSkeletonDisplay>

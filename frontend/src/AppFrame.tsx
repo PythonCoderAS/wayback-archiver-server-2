@@ -17,15 +17,13 @@ import {
   useLocation,
 } from "react-router-dom";
 
+const Link = React.forwardRef<HTMLAnchorElement, RouterLinkProps>(
+  function Link(itemProps, ref) {
+    return <RouterLink ref={ref} {...itemProps} role={undefined} />;
+  },
+);
 
-const Link = React.forwardRef<HTMLAnchorElement, RouterLinkProps>(function Link(
-  itemProps,
-  ref
-) {
-  return <RouterLink ref={ref} {...itemProps} role={undefined} />;
-});
-
-export function ListItemLink({children, to}: PropsWithChildren<{to: To}>) {
+export function ListItemLink({ children, to }: PropsWithChildren<{ to: To }>) {
   const currentPath = useLocation().pathname;
 
   const child = (
@@ -47,13 +45,18 @@ export function ListItemLink({children, to}: PropsWithChildren<{to: To}>) {
   );
 }
 
-function SidebarSection({ title, children }: PropsWithChildren<{ title: string}>) {
+function SidebarSection({
+  title,
+  children,
+}: PropsWithChildren<{ title: string }>) {
   return (
     <section>
-      <Typography variant="h6" textAlign="center">{title}</Typography>
+      <Typography variant="h6" textAlign="center">
+        {title}
+      </Typography>
       {children}
     </section>
-  )
+  );
 }
 
 function Sidebar() {
@@ -79,7 +82,6 @@ function Sidebar() {
     </Box>
   );
 }
-
 
 export const SetTitleContext = React.createContext<
   (newTitle: string) => unknown
