@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import os
 import re
 from contextlib import asynccontextmanager
 from os import environ
@@ -383,6 +384,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+os.makedirs("frontend/dist", exist_ok=True)
 static_files = StaticFiles(directory="frontend/dist", html=True)
 app.mount("/app", static_files, name="frontend")
 app.add_middleware(

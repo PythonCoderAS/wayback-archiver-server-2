@@ -3,9 +3,11 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import CssBaseline from "@mui/material/CssBaseline";
+import * as Sentry from "@sentry/react";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import * as Sentry from "@sentry/react";
+
+import App from "./App.tsx";
 
 Sentry.init({
   dsn: "https://5fcc74f69d26642e047cf04854765e88@o494335.ingest.sentry.io/4506498051407872",
@@ -22,8 +24,6 @@ Sentry.init({
   replaysSessionSampleRate: 0.1, // This sets the sample rate at 10%. You may want to change it to 100% while in development and then sample at a lower rate in production.
   replaysOnErrorSampleRate: 1.0, // If you're not already sampling the entire session, change the sample rate to 100% when sampling sessions where errors occur.
 });
-
-import App from "./App.tsx";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
