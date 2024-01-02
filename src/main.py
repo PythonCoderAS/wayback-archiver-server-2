@@ -359,17 +359,16 @@ async def lifespan(_: FastAPI):
     global engine, async_session
     if engine is None:
         engine = sqlalchemy.ext.asyncio.create_async_engine(
-            environ.get("DATABASE_URL", "sqlite:///db.sqlite"),
-            echo=True,
+            environ.get("DATABASE_URL", "sqlite:///db.sqlite")
         )
     async_session = sqlalchemy.ext.asyncio.async_sessionmaker(
         engine, expire_on_commit=False
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    # workers.append(
-    #     asyncio.create_task(exception_logger(url_worker(), name="url_worker"))
-    # )
+    workers.append(
+        asyncio.create_task(exception_logger(url_worker(), name="url_worker"))
+    )
     workers.append(
         asyncio.create_task(
             exception_logger(repeat_url_worker(), name="repeat_url_worker")
