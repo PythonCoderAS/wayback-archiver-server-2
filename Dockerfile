@@ -53,13 +53,28 @@ WORKDIR /tmp/frontend
 RUN ["npx", "openapi-typescript", "/tmp/openapi.json", "-o", "src/api/schema.d.ts"]
 RUN ["npm", "run", "build"]
 
-FROM python:3.12-slim as production
+FROM python:3.12-slim-bookworm as production
+
+ARG S6_OVERLAY_VERSION=3.1.6.2
+
+RUN apt update && apt install -y wget xz-utils
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+RUN cd /tmp/ && wget -q https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-$(uname -m).tar.xz
+RUN tar -C / -Jxpf /tmp/s6-overlay-$(uname -m).tar.xz
+COPY ./s6 /etc/s6-overlay/s6-rc.d/
+
+ENV S6_KEEP_ENV=1
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+ENV S6_VERBOSITY=1
 
 COPY --from=build-server-deps /venv /venv
-COPY src/main.py .
+COPY src/main.py ./src/main.py
 COPY --from=build-frontend /tmp/frontend/dist ./frontend/dist
 ENV PATH="/venv/bin:$PATH"
 
-ENTRYPOINT [ "python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers" ]
+CMD [ "python3", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers" ]
 
 EXPOSE 8000
+
+ENTRYPOINT [ "/init" ]
