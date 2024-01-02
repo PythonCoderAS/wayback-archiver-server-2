@@ -102,7 +102,7 @@ class RepeatURL(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, init=False)
     url_id: Mapped[int] = mapped_column(
-        sqlalchemy.ForeignKey(URL.id), nullable=False, unique=True, init=False
+        sqlalchemy.ForeignKey(URL.id), nullable=False, unique=True, init=False, index=True
     )
     url: Mapped[URL] = sqlalchemy.orm.relationship(
         URL, lazy="joined", innerjoin=True, foreign_keys=[url_id]
@@ -115,7 +115,7 @@ class RepeatURL(Base):
         index=True,
     )
     batch_id: Mapped[int] = mapped_column(
-        sqlalchemy.ForeignKey(Batch.id), nullable=False, unique=True, init=False
+        sqlalchemy.ForeignKey(Batch.id), nullable=False, unique=True, init=False, index=True
     )
     batch: Mapped[Batch] = sqlalchemy.orm.relationship(
         Batch, lazy="joined", innerjoin=True, foreign_keys=[batch_id]
@@ -137,11 +137,23 @@ class BatchJobs(Base):
         sqlalchemy.BigInteger, primary_key=True, autoincrement=True, init=False
     )
     batch_id: Mapped[int] = mapped_column(
-        sqlalchemy.ForeignKey(Batch.id), primary_key=True
+        sqlalchemy.ForeignKey(Batch.id), index=True
     )
     job_id: Mapped[int] = mapped_column(
-        sqlalchemy.ForeignKey("jobs.id"), primary_key=True
+        sqlalchemy.ForeignKey("jobs.id"), index=True
     )
+
+    batch: Mapped[Batch] = sqlalchemy.orm.relationship(
+        Batch, lazy="joined", innerjoin=True, foreign_keys=[batch_id]
+    )
+    job: Mapped["Job"] = sqlalchemy.orm.relationship(
+        "Job", lazy="joined", innerjoin=True, foreign_keys=[job_id]
+    )
+
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint("batch_id", "job_id", name="_batch_job_uc"),
+    )
+
 
 
 class Job(Base):
@@ -154,7 +166,7 @@ class Job(Base):
         Batch, secondary="batch_jobs", back_populates="jobs"
     )
     url_id: Mapped[int] = mapped_column(
-        sqlalchemy.ForeignKey(URL.id), nullable=False, init=False, repr=False
+        sqlalchemy.ForeignKey(URL.id), nullable=False, init=False, repr=False, index=True
     )
     url: Mapped[URL] = sqlalchemy.orm.relationship(
         URL, lazy="joined", innerjoin=True, foreign_keys=[url_id], back_populates="jobs"
