@@ -192,9 +192,9 @@ async def get_current_job(
     stmt = (
         select(Job)
         .where(
-            ((Job.delayed_until <= curtime) | (Job.delayed_until is None))
-            & (Job.completed is None)
-            & (Job.failed is None)
+            ((Job.delayed_until <= curtime) | (Job.delayed_until == None))
+            & (Job.completed == None)
+            & (Job.failed == None)
         )
         .order_by(Job.priority.desc(), Job.retry.desc(), Job.id)
         .limit(1)
@@ -323,8 +323,8 @@ async def repeat_url_worker():
                 .join(Job)
                 .where(
                     URL.url.in_([job.url.url for job in jobs])
-                    & (Job.completed is None)
-                    & (Job.failed is None)
+                    & (Job.completed == None)
+                    & (Job.failed == None)
                 )
             )
             result = await session.scalars(stmt2)
@@ -359,16 +359,17 @@ async def lifespan(_: FastAPI):
     global engine, async_session
     if engine is None:
         engine = sqlalchemy.ext.asyncio.create_async_engine(
-            environ.get("DATABASE_URL", "sqlite:///db.sqlite")
+            environ.get("DATABASE_URL", "sqlite:///db.sqlite"),
+            echo=True,
         )
     async_session = sqlalchemy.ext.asyncio.async_sessionmaker(
         engine, expire_on_commit=False
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    workers.append(
-        asyncio.create_task(exception_logger(url_worker(), name="url_worker"))
-    )
+    # workers.append(
+    #     asyncio.create_task(exception_logger(url_worker(), name="url_worker"))
+    # )
     workers.append(
         asyncio.create_task(
             exception_logger(repeat_url_worker(), name="repeat_url_worker")
@@ -453,7 +454,7 @@ async def stats() -> Stats:
             (
                 await session.execute(
                     select(Job.retry, sqlalchemy.func.count(Job.id))
-                    .where((Job.completed is None) & (Job.failed is None))
+                    .where((Job.completed == None) & (Job.failed == None))
                     .group_by(Job.retry)
                 )
             ).all()
@@ -462,21 +463,21 @@ async def stats() -> Stats:
             (
                 await session.execute(
                     select(Job.retry, sqlalchemy.func.count(Job.id))
-                    .where(Job.completed is not None)
+                    .where(Job.completed != None)
                     .group_by(Job.retry)
                 )
             ).all()
         )
         failed = (
             await session.scalar(
-                select(sqlalchemy.func.count(Job.id)).where(Job.failed is not None)
+                select(sqlalchemy.func.count(Job.id)).where(Job.failed != None)
             )
         ) or 0
         batches = (await session.scalar(select(sqlalchemy.func.count(Batch.id)))) or 0
         super_recently_archived_urls = (
             await session.scalar(
                 select(sqlalchemy.func.count(URL.id))
-                .where(URL.last_seen is not None)
+                .where(URL.last_seen != None)
                 .where(
                     URL.last_seen
                     > datetime.datetime.now(tz=datetime.timezone.utc)
@@ -488,7 +489,7 @@ async def stats() -> Stats:
             (
                 await session.scalar(
                     select(sqlalchemy.func.count(URL.id))
-                    .where(URL.last_seen is not None)
+                    .where(URL.last_seen != None)
                     .where(
                         URL.last_seen
                         > datetime.datetime.now(tz=datetime.timezone.utc)
@@ -501,7 +502,7 @@ async def stats() -> Stats:
         not_recently_archived_urls = (
             await session.scalar(
                 select(sqlalchemy.func.count(URL.id))
-                .where(URL.last_seen is not None)
+                .where(URL.last_seen != None)
                 .where(
                     URL.last_seen
                     < datetime.datetime.now(tz=datetime.timezone.utc)
@@ -511,20 +512,20 @@ async def stats() -> Stats:
         ) or 0
         not_archived_urls = (
             await session.scalar(
-                select(sqlalchemy.func.count(URL.id)).where(URL.last_seen is None)
+                select(sqlalchemy.func.count(URL.id)).where(URL.last_seen == None)
             )
         ) or 0
         active_repeat_urls = (
             await session.scalar(
                 select(sqlalchemy.func.count(RepeatURL.id)).where(
-                    RepeatURL.active_since is not None
+                    RepeatURL.active_since != None
                 )
             )
         ) or 0
         inactive_repeat_urls = (
             await session.scalar(
                 select(sqlalchemy.func.count(RepeatURL.id)).where(
-                    RepeatURL.active_since is None
+                    RepeatURL.active_since == None
                 )
             )
         ) or 0
@@ -676,7 +677,7 @@ class JobReturn(BaseModel):
             retry=job.retry,
             failed=job.failed,
             batches=batch_ids
-            if batch_ids is not None
+            if batch_ids != None
             else [batch.id for batch in job.batches],
         )
 
@@ -867,16 +868,16 @@ def apply_job_filtering(
         # If all 4 are given, we can take a shortcut and not apply anything
         if query_params["not_started"]:
             in_statement = in_statement.where(
-                (Job.completed is None)
-                & (Job.failed is None)
-                & (Job.delayed_until is None)
+                (Job.completed == None)
+                & (Job.failed == None)
+                & (Job.delayed_until == None)
             )
         if query_params["completed"]:
-            in_statement = in_statement.where(Job.completed is not None)
+            in_statement = in_statement.where(Job.completed != None)
         if query_params["delayed"]:
-            in_statement = in_statement.where(Job.delayed_until is not None)
+            in_statement = in_statement.where(Job.delayed_until != None)
         if query_params["failed"]:
-            in_statement = in_statement.where(Job.failed is not None)
+            in_statement = in_statement.where(Job.failed != None)
     retry_param_count = [
         query_params["retries_less_than"],
         query_params["retries_greater_than"],
