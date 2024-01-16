@@ -16,14 +16,9 @@ from ...main import (
 
 
 class BatchReturn(BaseModel):
-    """The ID of the batch"""
-
     id: int
-    """The time the batch was created"""
     created_at: datetime.datetime
-    """The ID of the repeat URL that the batch represents, if any"""
     repeat_url: int | None = None
-    """The number of jobs in the batch"""
     jobs: int
 
 
