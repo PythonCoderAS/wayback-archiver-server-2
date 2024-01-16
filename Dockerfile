@@ -34,7 +34,7 @@ WORKDIR /app
 
 COPY --from=build-server-deps /venv /venv
 
-COPY src/main.py src/main.py
+COPY src src
 COPY dump_openapi.py .
 ENV FASTAPI_OPENAPI_OUTPUT="/tmp/openapi.json"
 RUN ["mkdir", "-p", "frontend/dist"]
@@ -68,8 +68,8 @@ ENV S6_KEEP_ENV=1
 ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
 ENV S6_VERBOSITY=1
 
+COPY src ./src
 COPY --from=build-server-deps /venv /venv
-COPY src/main.py ./src/main.py
 COPY --from=build-frontend /tmp/frontend/dist ./frontend/dist
 ENV PATH="/venv/bin:$PATH"
 

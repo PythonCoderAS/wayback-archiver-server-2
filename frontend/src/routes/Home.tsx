@@ -202,7 +202,7 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([
-      GET("/current_job")
+      GET("/job/current")
         .catch((error) => {
           console.error("Error getting current job", error);
           return { data: { job: null } };

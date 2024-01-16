@@ -4,3 +4,6 @@ order-by-type = true
 
 [tool.ruff.format]
 docstring-code-format = true
+
+[tool.ruff.lint]
+ignore = ["E711"]

@@ -2,9 +2,8 @@ import asyncio
 from logging.config import fileConfig
 from os import environ
 
-from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config, create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 
@@ -19,7 +18,8 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from src.main import Base
+from src.models import Base  # noqa: E402
+
 target_metadata = Base.metadata
 # target_metadata = None
 
@@ -67,8 +67,8 @@ async def run_async_migrations() -> None:
     """
 
     connectable = create_async_engine(
-            environ.get("DATABASE_URL", "sqlite:///db.sqlite")
-        )
+        environ.get("DATABASE_URL", "sqlite:///db.sqlite")
+    )
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
