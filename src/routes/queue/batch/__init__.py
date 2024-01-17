@@ -1,13 +1,13 @@
-from pydantic import BaseModel
+from typing import Iterable
+from pydantic import BaseModel, Field
 from sqlalchemy import select
-from ...models import Job, URL, Batch
-from ...main import app, async_session
+from ....models import Job, URL, Batch
+from ....main import app, async_session
 
 
 class QueueBatchBody(BaseModel):
     urls: list[str]
-    priority: int = 0
-    unique_only: bool = True
+    tags: list[str] = Field(default_factory=list)
 
 
 class QueueBatchReturn(BaseModel):
@@ -15,13 +15,14 @@ class QueueBatchReturn(BaseModel):
     job_count: int
 
 
-@app.post("/queue/batch")
-async def queue_batch(body: QueueBatchBody) -> QueueBatchReturn:
-    batch = Batch()
-    urls = body.urls
-    if body.unique_only:
-        urls = set(urls)
+async def add_batch(
+    urls: Iterable[str],
+    *,
+    priority: int = 0,
+    tags: list[str],
+) -> QueueBatchReturn:
     async with async_session() as session, session.begin():
+        batch = Batch()
         stmt = select(URL).where(URL.url.in_(urls))
         result = await session.scalars(stmt)
         existing_urls_items = result.all()
@@ -42,7 +43,14 @@ async def queue_batch(body: QueueBatchBody) -> QueueBatchReturn:
         del url_models
         jobs = []
         for url in urls:
-            jobs.append(Job(url=url_map[url], batches=[batch], priority=body.priority))
+            jobs.append(Job(url=url_map[url], batches=[batch], priority=priority))
         session.add_all(jobs)
 
     return QueueBatchReturn(batch_id=batch.id, job_count=len(jobs))
+
+
+@app.post("/queue/batch")
+async def queue_batch(
+    body: QueueBatchBody, priority: int = 0, unique_only: bool = True
+) -> QueueBatchReturn:
+    return await add_batch(set(body.urls) if unique_only else body.urls, priority, unique_only)

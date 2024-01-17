@@ -38,6 +38,14 @@ sentry_sdk.init(
     profiles_sample_rate=1.0,
 )
 
+archive_url_regex = re.compile(r"/web/(\d{14})")
+
+
+def get_archive_save_url_timestamp(timestamp: str) -> datetime.datetime:
+    return datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S").replace(
+        tzinfo=datetime.timezone.utc
+    )
+
 
 # Constants
 min_wait_time_between_archives = datetime.timedelta(hours=1)
@@ -125,12 +133,10 @@ async def url_worker():
                         allow_redirects=False,
                     ) as resp:
                         resp.raise_for_status()
-                        if match := re.search(
-                            r"/web/(\d{14})", resp.headers.get("Location", "")
+                        if match := archive_url_regex.search(
+                            resp.headers.get("Location", "")
                         ):
-                            saved_dt = datetime.datetime.strptime(
-                                match.group(1), "%Y%m%d%H%M%S"
-                            ).replace(tzinfo=datetime.timezone.utc)
+                            saved_dt = get_archive_save_url_timestamp(match.group(1))
                             async with session.begin():
                                 await session.execute(
                                     update(URL)
