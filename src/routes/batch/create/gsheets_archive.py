@@ -15,6 +15,7 @@ heading = (
     "archive_message",
     "archive_info",
     "first_archive_status",
+    "screnshot_url",
 )
 
 
@@ -25,6 +26,7 @@ class CSVBatchItem(TypedDict):
     archive_message: str
     archive_info: str | Literal[""]
     first_archive_status: Literal["First Archive", ""]
+    screnshot_url: str | Literal[""]
 
 
 @app.post("/batch/create/gsheets_archive")
