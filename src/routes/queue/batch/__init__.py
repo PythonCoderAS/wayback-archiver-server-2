@@ -53,4 +53,6 @@ async def add_batch(
 async def queue_batch(
     body: QueueBatchBody, priority: int = 0, unique_only: bool = True
 ) -> QueueBatchReturn:
-    return await add_batch(set(body.urls) if unique_only else body.urls, priority, unique_only)
+    return await add_batch(
+        set(body.urls) if unique_only else body.urls, priority, unique_only
+    )
