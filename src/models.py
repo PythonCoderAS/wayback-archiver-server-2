@@ -90,8 +90,8 @@ class Batch(Base):
         init=False,
         index=True,
     )
-    locked: Mapped[bool] = mapped_column(
-        default=False
+    locked: Mapped[datetime.datetime | None] = mapped_column(
+        sqlalchemy.DateTime(timezone=True), default=None, nullable=True, index=True
     )  # Indicates that a batch is locked (no more jobs can be added to it)
 
     jobs: Mapped[list["Job"]] = sqlalchemy.orm.relationship(
@@ -188,6 +188,12 @@ class BatchJobs(Base):
         sqlalchemy.UniqueConstraint("batch_id", "job_id", name="_batch_job_uc"),
     )
 
+    @sqlalchemy.orm.validates("batch")
+    def validate_not_locked_batch(self, key: str, batch: Batch) -> Batch:
+        if batch.locked:
+            raise ValueError("Batch is locked")
+        return batch
+
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -228,3 +234,9 @@ class Job(Base):
     failed: Mapped[datetime.datetime | None] = mapped_column(
         sqlalchemy.DateTime(timezone=True), default=None, nullable=True, index=True
     )  # If a job has failed, this is the time it failed at
+
+    @sqlalchemy.orm.validates("batches")
+    def validate_not_locked_batch(self, key: str, batch: Batch) -> Batch:
+        if batch.locked:
+            raise ValueError("Batch is locked")
+        return batch
