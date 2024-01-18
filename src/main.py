@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select, update
 import sentry_sdk
-from .models import Job, Batch, URL, RepeatURL
+from .models import BatchTag, Job, Batch, URL, RepeatURL
 from .routes import load_routes
 
 sentry_sdk.init(
@@ -215,7 +215,9 @@ async def repeat_url_worker():
                         created_at + datetime.timedelta(minutes=30) < curtime
                     ):
                         async with session.begin_nested():
-                            batch = Batch()
+                            batch = Batch(
+                                tags=await BatchTag.resolve_list({"repeat-url-batch"})
+                            )
                             created_at = curtime
                             session.add(batch)
                     queued.append(
