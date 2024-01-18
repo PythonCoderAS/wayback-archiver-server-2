@@ -17,6 +17,7 @@ from typing import (
 )
 
 import sqlalchemy
+import sqlalchemy.ext.asyncio
 from aiohttp import ClientSession
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware

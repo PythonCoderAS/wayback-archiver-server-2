@@ -1,4 +1,6 @@
 import datetime
+from typing import Self
+from sqlalchemy import select
 from sqlalchemy.orm import Mapped, mapped_column
 import sqlalchemy.ext.asyncio
 import sqlalchemy.orm
@@ -12,6 +14,71 @@ class Base(
     pass
 
 
+class BatchTag(Base):
+    __tablename__ = "batch_tags"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, init=False)
+    name: Mapped[str] = mapped_column(
+        sqlalchemy.String(length=256), unique=True, index=True
+    )
+
+    batches: Mapped[list["Batch"]] = sqlalchemy.orm.relationship(
+        "Batch",
+        secondary="batch_tag_batches",
+        back_populates="tags",
+        init=False,
+        repr=False,
+    )
+
+    @classmethod
+    async def resolve_list(cls, names: set[str]) -> list[Self]:
+        from .main import async_session
+
+        if not names:
+            return []
+
+        async with async_session() as session, session.begin():
+            stmt = select(cls).where(cls.name.in_(names))
+            result = (await session.scalars(stmt)).all()
+            seen = {r.name: r for r in result}
+            seen_set = set(seen.keys())
+            missing = names - seen_set
+            if missing:
+                newly_created: list[BatchTag] = [
+                    BatchTag(name=name) for name in missing
+                ]
+                session.add_all(newly_created)
+                return [*seen.values(), *newly_created]
+            return list(seen.values())
+
+
+class BatchTagBatch(Base):
+    __tablename__ = "batch_tag_batches"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, init=False)
+    batch_id: Mapped[int] = mapped_column(
+        sqlalchemy.ForeignKey("batches.id"), index=True
+    )
+    batch_tag_id: Mapped[int] = mapped_column(
+        sqlalchemy.ForeignKey(BatchTag.id), index=True
+    )
+
+    batch: Mapped["Batch"] = sqlalchemy.orm.relationship(
+        "Batch", lazy="joined", innerjoin=True, foreign_keys=[batch_id], viewonly=True
+    )
+    batch_tag: Mapped["BatchTag"] = sqlalchemy.orm.relationship(
+        "BatchTag",
+        lazy="joined",
+        innerjoin=True,
+        foreign_keys=[batch_tag_id],
+        viewonly=True,
+    )
+
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint(
+            "batch_id", "batch_tag_id", name="_batch_batch_tag_uc"
+        ),
+    )
+
+
 class Batch(Base):
     __tablename__ = "batches"
 
@@ -23,9 +90,18 @@ class Batch(Base):
         init=False,
         index=True,
     )
+    locked: Mapped[bool] = mapped_column(
+        default=False
+    )  # Indicates that a batch is locked (no more jobs can be added to it)
 
     jobs: Mapped[list["Job"]] = sqlalchemy.orm.relationship(
         "Job", secondary="batch_jobs", back_populates="batches", init=False, repr=False
+    )
+    tags: Mapped[list[BatchTag]] = sqlalchemy.orm.relationship(
+        BatchTag,
+        secondary="batch_tag_batches",
+        back_populates="batches",
+        default_factory=list,
     )
 
 
@@ -119,9 +195,6 @@ class Job(Base):
     id: Mapped[int] = mapped_column(
         sqlalchemy.BigInteger, primary_key=True, autoincrement=True, init=False
     )
-    batches: Mapped[list[Batch]] = sqlalchemy.orm.relationship(
-        Batch, secondary="batch_jobs", back_populates="jobs"
-    )
     url_id: Mapped[int] = mapped_column(
         sqlalchemy.ForeignKey(URL.id),
         nullable=False,
@@ -131,6 +204,9 @@ class Job(Base):
     )
     url: Mapped[URL] = sqlalchemy.orm.relationship(
         URL, lazy="joined", innerjoin=True, foreign_keys=[url_id], back_populates="jobs"
+    )
+    batches: Mapped[list[Batch]] = sqlalchemy.orm.relationship(
+        Batch, secondary="batch_jobs", back_populates="jobs", default_factory=list
     )
     created_at: Mapped[datetime.datetime] = mapped_column(
         sqlalchemy.DateTime(timezone=True),

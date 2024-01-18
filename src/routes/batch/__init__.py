@@ -1,6 +1,6 @@
 import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import sqlalchemy
 from sqlalchemy import select
 
@@ -20,6 +20,7 @@ class BatchReturn(BaseModel):
     created_at: datetime.datetime
     repeat_url: int | None = None
     jobs: int
+    tags: list[str] = Field(default_factory=list)
 
 
 @app.get("/batch")

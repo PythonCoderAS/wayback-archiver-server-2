@@ -32,6 +32,7 @@ class CSVBatchItem(TypedDict):
 @app.post("/batch/create/gsheets_archive")
 async def create_batch_gsheets_archive(
     file: UploadFile,
+    exclude_ratelimited_daily: bool = True,
     priority: int = 0,
     tags: list[str] | None = None,
     created_override: datetime.datetime | None = None,
@@ -53,6 +54,11 @@ async def create_batch_gsheets_archive(
                 )
             )
         elif item["archive_message"]:  # A message other than an URL = failure
+            if (
+                "You cannot make more than" in item["archive_message"]
+            ):  # We got ratelimited for too many captures in a day
+                if exclude_ratelimited_daily:
+                    continue
             items.append(
                 BatchItem(
                     url=url,
