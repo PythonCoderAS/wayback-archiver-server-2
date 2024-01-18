@@ -2,20 +2,19 @@ name: Docker
 
 on:
   schedule:
-    - cron: '44 0 * * *'
+    - cron: "44 0 * * *"
   push:
-    branches: [ "master" ]
+    branches: ["master"]
     # Publish semver tags as releases.
-    tags: [ '*.*.*' ]
+    tags: ["*.*.*"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
-
 
 jobs:
   build:
@@ -67,5 +66,5 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
           provenance: true
           sbom: true
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          build-args: |
+            SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
