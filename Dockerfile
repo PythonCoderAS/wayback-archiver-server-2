@@ -51,6 +51,9 @@ COPY --from=build-frontend-deps /tmp/frontend/node_modules /tmp/frontend/node_mo
 WORKDIR /tmp/frontend
 
 RUN ["npx", "openapi-typescript", "/tmp/openapi.json", "-o", "src/api/schema.d.ts"]
+
+ARG SENTRY_AUTH_TOKEN=""
+ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
 RUN ["npm", "run", "build"]
 
 FROM python:3.12-slim-bookworm as production
