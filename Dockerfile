@@ -19,7 +19,7 @@ RUN ["python3", "-m", "venv", "/venv"]
 ENV PATH="/venv/bin:$PATH"
 RUN ["python3", "-m", "pip", "install", "-r", "requirements.txt"]
 
-FROM node:20 as build-frontend-deps
+FROM node:21 as build-frontend-deps
 
 # Path: /tmp/
 WORKDIR /tmp/
@@ -42,7 +42,7 @@ RUN ["mkdir", "-p", "frontend/dist"]
 ENV PATH="/venv/bin:$PATH"
 RUN ["python3", "dump_openapi.py"]
 
-FROM node:20 as build-frontend
+FROM node:21 as build-frontend
 
 COPY --from=build-server-openapi /tmp/openapi.json /tmp/openapi.json
 COPY ./frontend /tmp/frontend
