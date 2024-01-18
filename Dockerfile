@@ -68,7 +68,11 @@ ENV S6_KEEP_ENV=1
 ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
 ENV S6_VERBOSITY=1
 
+WORKDIR /app
+
 COPY src ./src
+COPY alembic.ini ./alembic.ini
+COPY alembic ./alembic
 COPY --from=build-server-deps /venv /venv
 COPY --from=build-frontend /tmp/frontend/dist ./frontend/dist
 ENV PATH="/venv/bin:$PATH"

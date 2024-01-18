@@ -1,4 +1,0 @@
-#!/command/execlineb -P
-# vim: set syntax=sh :
-
-python3 -m alembic upgrade head
