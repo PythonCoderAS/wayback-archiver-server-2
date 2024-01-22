@@ -208,6 +208,9 @@ export default function Home() {
           return { data: { job: null } };
         })
         .then(({ data }) => {
+          if (!data?.job) {
+            return;
+          }
           const job: JobMaybe = data!.job;
           if ((job === null || currentJob === null) && job !== currentJob) {
             if (currentJob) {
@@ -249,7 +252,7 @@ export default function Home() {
             setOldJobCount(0);
           }
         }),
-      GET("/stats").then(({ data }) => setStats(data!)),
+      GET("/stats").then(({ data }) => data && setStats(data!)),
     ]).finally(() => {
       setTimeout(() => setLoadCount(loadCount + 1), 1000);
     });
