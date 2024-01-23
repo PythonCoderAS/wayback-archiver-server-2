@@ -13,6 +13,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ag-grid-community/core": "^31.0.2",
+    "@ag-grid-community/react": "^31.0.2",
+    "@ag-grid-enterprise/advanced-filter": "^31.0.2",
+    "@ag-grid-enterprise/core": "^31.0.2",
+    "@ag-grid-enterprise/multi-filter": "^31.0.2",
+    "@ag-grid-enterprise/row-grouping": "^31.0.2",
+    "@ag-grid-enterprise/server-side-row-model": "^31.0.2",
+    "@ag-grid-enterprise/set-filter": "^31.0.2",
+    "@ag-grid-enterprise/status-bar": "^31.0.2",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@fontsource/roboto": "^5.0.8",
