@@ -15,6 +15,7 @@ from typing import (
     TypeVar,
     overload,
 )
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import sqlalchemy
 import sqlalchemy.ext.asyncio
@@ -259,9 +260,23 @@ async def lifespan(_: FastAPI):
             await engine.dispose()
 
 
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope) -> Response:
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as e:
+            if e.status_code == 404:
+                response = await super().get_response("./index.html", scope)
+            else:
+                raise
+        if response.status_code == 404:
+            response = await super().get_response("./index.html", scope)
+        return response
+
+
 app = FastAPI(lifespan=lifespan)
 os.makedirs("frontend/dist", exist_ok=True)
-static_files = StaticFiles(directory="frontend/dist", html=True)
+static_files = SPAStaticFiles(directory="frontend/dist", html=True)
 app.mount("/app", static_files, name="frontend")
 app.add_middleware(
     CORSMiddleware,
@@ -269,19 +284,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# Serves /index.html if we are in /app and there is a 404
-@app.middleware("http")
-async def spa_middleware(
-    req: Request, call_next: Callable[[Request], Awaitable[Response]]
-):
-    resp = await call_next(req)
-    if resp.status_code == 404 and req.url.path.startswith("/app"):
-        # Note: Find a better way to do this!
-        req.scope["path"] = "/app/index.html"
-        resp = await call_next(req)
-    return resp
 
 
 redirect_map: dict[str, str] = {

@@ -1,9 +1,20 @@
+import { ModuleRegistry } from "@ag-grid-community/core";
+import "@ag-grid-community/styles/ag-grid.css";
+import "@ag-grid-community/styles/ag-theme-quartz.css";
+import { AdvancedFilterModule } from "@ag-grid-enterprise/advanced-filter";
+import { MultiFilterModule } from "@ag-grid-enterprise/multi-filter";
+import { RowGroupingModule } from "@ag-grid-enterprise/row-grouping";
+import { ServerSideRowModelModule } from "@ag-grid-enterprise/server-side-row-model";
+import { SetFilterModule } from "@ag-grid-enterprise/set-filter";
+import { StatusBarModule } from "@ag-grid-enterprise/status-bar";
 import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
+// Theme
 import CssBaseline from "@mui/material/CssBaseline";
 import * as Sentry from "@sentry/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import ReactDOM from "react-dom/client";
 
@@ -25,9 +36,22 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0, // If you're not already sampling the entire session, change the sample rate to 100% when sampling sessions where errors occur.
 });
 
+ModuleRegistry.registerModules([
+  AdvancedFilterModule,
+  MultiFilterModule,
+  RowGroupingModule,
+  ServerSideRowModelModule,
+  SetFilterModule,
+  StatusBarModule,
+]);
+
+const queryClient = new QueryClient();
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <CssBaseline enableColorScheme={true} />
-    <App />
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
   </React.StrictMode>,
 );

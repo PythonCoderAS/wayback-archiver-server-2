@@ -71,6 +71,10 @@ function Sidebar() {
           <List>
             <ListItemLink to="/">Home</ListItemLink>
             <Divider />
+            <SidebarSection title="Job">
+              <ListItemLink to="/job">View Jobs</ListItemLink>
+            </SidebarSection>
+            <Divider />
             <SidebarSection title="Batch">
               <ListItemLink to="/batch">View All Batches</ListItemLink>
               <ListItemLink to="/batch/new">Create New Batch</ListItemLink>
