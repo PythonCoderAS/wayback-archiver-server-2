@@ -11,29 +11,39 @@ import { DateTime } from "luxon";
 import { Job } from "../../api/api";
 import BatchChip from "../../misc/BatchChip";
 
-export default function ViewJobs() {
-  const retColDefs: [
-    ColDef<Job, number>,
-    ColDef<Job>,
-    ColDef<Job, string | null>,
-  ] = [
+export default function ViewJobs({ height = "80vh", url = "/job/grid_sort" }) {
+  const retColDefs: [ColDef<Job, number>, ColDef<Job, string | null>] = [
     {
       field: "retry",
       headerName: "Retries Used",
       sortable: true,
-      filter: true,
-    },
-    {
-      valueGetter: (params) => 4 - (params.data?.retry ?? 0),
-      headerName: "Retries Left",
-      sortable: true,
-      filter: true,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agNumberColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
     },
     {
       field: "delayed_until",
       headerName: "Delayed Until",
       sortable: true,
-      filter: true,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agDateColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
     },
   ];
   const colDefs: [
@@ -46,13 +56,53 @@ export default function ViewJobs() {
     ColDef<Job, string>,
     ColDef<Job, number>,
   ] = [
-    { field: "id", headerName: "ID", sortable: true, filter: true },
-    { field: "url", headerName: "URL", sortable: true, filter: true },
+    {
+      field: "id",
+      headerName: "ID",
+      sortable: true,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agNumberColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
+    },
+    {
+      field: "url",
+      headerName: "URL",
+      sortable: true,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agTextColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
+    },
     {
       field: "batches",
       headerName: "Batches",
-      sortable: true,
-      filter: true,
+      sortable: false,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agNumberColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
       cellRenderer(params: ICellRendererParams<Job, number[] | undefined>) {
         return (params.value ?? []).map((batchId) => (
           <>
@@ -66,7 +116,17 @@ export default function ViewJobs() {
       field: "completed",
       headerName: "Archive URL",
       sortable: true,
-      filter: true,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agDateColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
       cellRenderer(params: ICellRendererParams<Job, string | null>) {
         if (params.value === null || params.value === undefined) {
           return null;
@@ -78,7 +138,22 @@ export default function ViewJobs() {
         return <a href={archiveURLString}>{archiveURLString}</a>;
       },
     },
-    { field: "failed", headerName: "Failed At", sortable: true, filter: true },
+    {
+      field: "failed",
+      headerName: "Failed At",
+      sortable: true,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agDateColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
+    },
     {
       headerName: "Retries",
       children: retColDefs,
@@ -87,19 +162,44 @@ export default function ViewJobs() {
       field: "created_at",
       headerName: "Created At",
       sortable: true,
-      filter: true,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agDateColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
     },
-    { field: "priority", headerName: "Priority", sortable: true, filter: true },
+    {
+      field: "priority",
+      headerName: "Priority",
+      sortable: true,
+      filter: "agMultiColumnFilter",
+      filterParams: {
+        filters: [
+          {
+            filter: "agNumberColumnFilter",
+          },
+          {
+            filter: "agSetColumnFilter",
+          },
+        ],
+      },
+    },
   ];
 
   return (
-    <div className="ag-theme-quartz" style={{ height: "80vh" }}>
+    <div className="ag-theme-quartz" style={{ height }}>
       <AgGridReact
         rowModelType="serverSide"
         columnDefs={colDefs}
         serverSideDatasource={{
           getRows(params: IServerSideGetRowsParams<Job>) {
-            fetch("/job/grid_sort", {
+            fetch(url, {
               body: JSON.stringify(params.request),
               method: "POST",
               headers: {

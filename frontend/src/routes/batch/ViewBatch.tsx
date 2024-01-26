@@ -6,13 +6,13 @@ import Error404 from "../404";
 import { SetTitleContext } from "../../AppFrame";
 import { Batch, GET, RepeatURL } from "../../api/api";
 import InlineSkeletonDisplay from "../../misc/InlineSkeletonDisplay";
+import ViewJobs from "../job/ViewJobs";
 
 const theme = createTheme();
 
 export default function ViewBatch() {
   const { batchId } = useParams<{ batchId: string }>();
 
-  const [counter, setCounter] = useState(0);
   const setTitle = useContext(SetTitleContext);
 
   const [batch, setBatch] = useState<Batch | null>(null);
@@ -24,17 +24,10 @@ export default function ViewBatch() {
     }
     GET("/batch/{batch_id}", {
       params: { path: { batch_id: Number(batchId) } },
-    })
-      .then(({ data }) => {
-        setBatch(data ?? null);
-        if (data?.repeat_url && repeatURL === null) {
-          // No-op
-          // To-do: GET the repeat URL
-        }
-      })
-      .finally(() => setTimeout(() => setCounter(counter + 1), 10000));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- This is a clock function
-  }, [counter]);
+    }).then(({ data }) => {
+      setBatch(data ?? null);
+    });
+  }, [batchId]);
 
   useEffect(() => {
     setTitle("Batch " + batchId);
@@ -82,6 +75,7 @@ export default function ViewBatch() {
       </section>
       <section>
         <h2>Jobs</h2>
+        <ViewJobs url={`/job/grid_sort?batch_id=${batchId}`} height="75vh" />
       </section>
     </div>
   );
