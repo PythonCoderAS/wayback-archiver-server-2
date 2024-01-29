@@ -103,11 +103,12 @@ export default function ViewJobs({ height = "80vh", url = "/job/grid_sort" }) {
           },
         ],
       },
+      autoHeight: true,
       cellRenderer(params: ICellRendererParams<Job, number[] | undefined>) {
-        return (params.value ?? []).map((batchId) => (
+        return (params.value ?? []).map((batchId, index) => (
           <>
+            {index !== 0 && <br />}
             <BatchChip batchId={batchId} />
-            <br />
           </>
         ));
       },
@@ -197,6 +198,9 @@ export default function ViewJobs({ height = "80vh", url = "/job/grid_sort" }) {
       <AgGridReact
         rowModelType="serverSide"
         columnDefs={colDefs}
+        autoSizeStrategy={{
+          type: "fitCellContents",
+        }}
         serverSideDatasource={{
           getRows(params: IServerSideGetRowsParams<Job>) {
             fetch(url, {
