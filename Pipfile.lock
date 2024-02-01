@@ -1075,12 +1075,12 @@
         },
         "ssort": {
             "hashes": [
-                "sha256:40301470f2ac46bd7962872acf35309cfb5563ce09b9dcff567dc2cfcf433e91",
-                "sha256:ea5452f1854f1c8785ab3d427b0cb791d677b84e53f827d536c4f6281b601fe0"
+                "sha256:5b538c77fd27ffcfcab40c35e38d05d98e758874f855ae2aa32cb6f5277fc348",
+                "sha256:ce43be978c06ff455346b0a391dc4bd6c71fd972a96892edf304c5f65261db1d"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==0.12.1"
+            "version": "==0.12.4"
         },
         "typing-extensions": {
             "hashes": [
