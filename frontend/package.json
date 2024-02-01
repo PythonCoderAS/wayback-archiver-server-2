@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@ag-grid-community/core": "^31.0.2",
-    "@ag-grid-community/react": "^31.0.2",
+    "@ag-grid-community/react": "^31.0.3",
     "@ag-grid-community/styles": "^31.0.2",
     "@ag-grid-enterprise/advanced-filter": "^31.0.2",
     "@ag-grid-enterprise/core": "^31.0.3",
