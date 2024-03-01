@@ -35,7 +35,7 @@
     "openapi-fetch": "^0.8.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.21.3"
+    "react-router-dom": "^6.22.2"
   },
   "devDependencies": {
     "@sentry/vite-plugin": "^2.10.2",
