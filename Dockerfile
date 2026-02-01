@@ -1,4 +1,4 @@
-FROM python:3.12 as generate-requirements
+FROM python:3.14 as generate-requirements
 
 # Path: /app
 WORKDIR /app
@@ -8,7 +8,7 @@ RUN ["pip", "install", "pipenv"]
 RUN ["sh", "-c", "pipenv requirements --dev > requirements.txt"]
 RUN ["rm", "Pipfile", "Pipfile.lock"]
 
-FROM python:3.12 as build-server-deps
+FROM python:3.14 as build-server-deps
 
 # Path: /app
 WORKDIR /app
@@ -28,7 +28,7 @@ COPY ./frontend/package.json frontend/package.json
 WORKDIR /tmp/frontend
 RUN ["npm", "install"]
 
-FROM python:3.12 as build-server-openapi
+FROM python:3.14 as build-server-openapi
 
 WORKDIR /app
 
@@ -54,7 +54,7 @@ RUN ["npx", "openapi-typescript", "/tmp/openapi.json", "-o", "src/api/schema.d.t
 
 RUN ["npm", "run", "build"]
 
-FROM python:3.12-slim-bookworm as production
+FROM python:3.14-slim-bookworm as production
 
 ARG S6_OVERLAY_VERSION=3.1.6.2
 
